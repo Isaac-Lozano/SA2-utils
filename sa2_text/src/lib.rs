@@ -9,12 +9,71 @@ pub enum TextElement {
     Text(String),
 }
 
+impl TextElement {
+    pub fn is_meta(&self) -> bool {
+        match *self {
+            TextElement::Text(_) => false,
+            _ => true,
+        }
+    }
+}
+
 #[derive(Clone,Debug)]
 pub struct Sa2Text {
-    text: Vec<TextElement>,
+    elements: Vec<TextElement>,
 }
 
 impl Sa2Text {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        enum State {
+            Text,
+            Meta,
+        }
+        let mut state = None;
+        let mut bytes = Vec::new();
+
+        for element in self.elements.iter() {
+            match element {
+                e if element.is_meta() => {
+                    match state {
+                        Some(State::Text) | None => bytes.push(0x0c),
+                        _ => {}
+                    }
+                    state = Some(State::Meta);
+
+                    match *e {
+                        TextElement::Sound(num) => {
+                            bytes.push('s' as u8);
+                            let num_string = num.to_string().into_bytes();
+                            bytes.extend_from_slice(&num_string);
+                        }
+                        TextElement::Wait(num) => {
+                            bytes.push('w' as u8);
+                            let num_string = num.to_string().into_bytes();
+                            bytes.extend_from_slice(&num_string);
+                        }
+                        TextElement::D => {
+                            bytes.push('D' as u8);
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                &TextElement::Text(ref string) => {
+                    match state {
+                        Some(State::Meta) => bytes.extend_from_slice(&[0x20, 0x07]),
+                        None => bytes.push(0x07),
+                        _ => {}
+                    }
+                    state = Some(State::Text);
+
+                    bytes.extend_from_slice(&string.clone().into_bytes());
+                }
+                _ => unreachable!(),
+            }
+        }
+        bytes
+    }
+
     pub fn from_slice(slice: &[u8]) -> Sa2Text {
         let mut elements = Vec::new();
         let mut peeker = slice.iter().peekable();
@@ -29,7 +88,7 @@ impl Sa2Text {
                     let text = TextElement::Text(Sa2Text::read_text(&mut peeker));
                     elements.push(text);
                 }
-                None => return Sa2Text { text: elements },
+                None => return Sa2Text { elements: elements },
                 _ => panic!("Bad command byte."),
             }
         }
