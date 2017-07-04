@@ -39,25 +39,23 @@ impl Sa2Text {
         let mut elements = Vec::new();
 
         loop {
-            match peeker.peek() {
+            match peeker.next() {
                 // 's'
-                Some(&&0x73) => {
-                    peeker.next();
+                Some(&0x73) => {
                     let num = Sa2Text::read_number(peeker);
                     elements.push(TextElement::Sound(num));
                 }
                 // 'w'
-                Some(&&0x77) => {
-                    peeker.next();
+                Some(&0x77) => {
                     let num = Sa2Text::read_number(peeker);
                     elements.push(TextElement::Wait(num));
                 }
                 // 'D'
-                Some(&&0x44) => {
-                    peeker.next();
+                Some(&0x44) => {
                     elements.push(TextElement::D);
                 }
-                Some(&&0x07) | None => return elements,
+                // ' '
+                Some(&0x20) | None => return elements,
                 _ => panic!("Bad meta byte."),
             }
         }
@@ -81,8 +79,8 @@ impl Sa2Text {
         let mut str_data = Vec::new();
         loop {
             match peeker.peek() {
-                Some(&&0x07) | None => return String::from_utf8(str_data).unwrap(),
-                Some(x) => str_data.push(**x),
+                Some(&&0x0c) | None => return String::from_utf8(str_data).unwrap(),
+                Some(_) => str_data.push(*peeker.next().unwrap()),
             }
         }
     }
