@@ -1,0 +1,8 @@
+[package]
+name = "set_editor"
+version = "0.1.0"
+authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
+
+[dependencies]
+sa2_set = {path = "../sa2_set"}
+serde_json = "1.0"
