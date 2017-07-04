@@ -122,9 +122,7 @@ impl SetObject {
 }
 
 #[derive(Clone,Debug)]
-pub struct SetFile {
-    objects: Vec<SetObject>,
-}
+pub struct SetFile(pub Vec<SetObject>);
 
 impl SetFile {
     pub fn from_read<P, R>(readable: &mut R) -> io::Result<SetFile>
@@ -148,16 +146,14 @@ impl SetFile {
             objects.push(SetObject::from_read::<_, P::Endianess>(readable)?);
         }
 
-        Ok(SetFile {
-            objects: objects,
-        })
+        Ok(SetFile(objects))
     }
 
     pub fn write_data<P, W>(&self, writeable: &mut W) -> io::Result<()>
         where P: Platform,
               W: Write,
     {
-        writeable.write_u32::<P::Endianess>(self.objects.len() as u32)?;
+        writeable.write_u32::<P::Endianess>(self.0.len() as u32)?;
 
         // TODO: XXX
         writeable.write_u32::<P::Endianess>(0)?;
@@ -168,15 +164,11 @@ impl SetFile {
         writeable.write_u32::<P::Endianess>(0)?;
         writeable.write_u32::<P::Endianess>(0)?;
 
-        for object in self.objects.iter() {
+        for object in self.0.iter() {
             object.write_data::<P, _>(writeable)?;
         }
 
         Ok(())
-    }
-
-    pub fn into_vec(self) -> Vec<SetObject> {
-        self.objects
     }
 }
 

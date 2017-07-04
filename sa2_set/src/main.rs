@@ -19,7 +19,7 @@ fn main() {
         _ => panic!("Bad platform id."),
     };
 
-    let objs = set.into_vec();
+    let SetFile(objs) = set;
 
     for (idx, obj) in objs.into_iter().enumerate() {
         println!("obj {}: {:#?}", idx, obj);
