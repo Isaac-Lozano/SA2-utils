@@ -5,3 +5,5 @@ authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
 
 [dependencies]
 byteorder = "1.0"
+serde = "1.0"
+serde_derive = "1.0"
