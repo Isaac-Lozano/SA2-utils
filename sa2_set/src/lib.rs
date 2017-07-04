@@ -1,25 +1,11 @@
 extern crate byteorder;
 
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
-use byteorder::{ReadBytesExt, ByteOrder, LittleEndian, BigEndian};
+use byteorder::{ReadBytesExt, WriteBytesExt, ByteOrder, LittleEndian, BigEndian};
 
 #[derive(Clone,Copy,Debug)]
-pub enum Object {
-    Emerald,
-    EmeraldF,
-    Unknown(u16),
-}
-
-impl Object {
-    fn from_u16(num: u16) -> Object {
-        match num {
-            0x000f => Object::Emerald,
-            0x0052 => Object::EmeraldF,
-            _ => Object::Unknown(num),
-        }
-    }
-}
+pub struct Object(pub u16);
 
 #[derive(Clone,Copy,Debug)]
 pub struct Rotation {
@@ -42,6 +28,16 @@ impl Rotation {
             y: y,
             z: z,
         })
+    }
+
+    pub fn write_data<P, W>(&self, writeable: &mut W) -> io::Result<()>
+        where P: Platform,
+              W: Write,
+    {
+        writeable.write_u16::<P::Endianess>(self.x)?;
+        writeable.write_u16::<P::Endianess>(self.y)?;
+        writeable.write_u16::<P::Endianess>(self.z)?;
+        Ok(())
     }
 }
 
@@ -67,6 +63,16 @@ impl Position {
             z: z,
         })
     }
+
+    pub fn write_data<P, W>(&self, writeable: &mut W) -> io::Result<()>
+        where P: Platform,
+              W: Write,
+    {
+        writeable.write_f32::<P::Endianess>(self.x)?;
+        writeable.write_f32::<P::Endianess>(self.y)?;
+        writeable.write_f32::<P::Endianess>(self.z)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone,Copy,Debug)]
@@ -84,8 +90,7 @@ impl SetObject {
         where R: Read,
               E: ByteOrder,
     {
-        let raw_obj_clip = readable.read_u16::<E>()?;
-        let object = Object::from_u16(raw_obj_clip);
+        let object = Object(readable.read_u16::<E>()?);
         let rotation = Rotation::from_read::<R, E>(readable)?;
         let position = Position::from_read::<R, E>(readable)?;
         let attr1 = readable.read_u32::<E>()?;
@@ -100,6 +105,19 @@ impl SetObject {
             attr2: attr2,
             attr3: attr3,
         })
+    }
+
+    pub fn write_data<P, W>(&self, writeable: &mut W) -> io::Result<()>
+        where P: Platform,
+              W: Write,
+    {
+        writeable.write_u16::<P::Endianess>(self.object.0)?;
+        self.rotation.write_data::<P, _>(writeable)?;
+        self.position.write_data::<P, _>(writeable)?;
+        writeable.write_u32::<P::Endianess>(self.attr1)?;
+        writeable.write_u32::<P::Endianess>(self.attr2)?;
+        writeable.write_u32::<P::Endianess>(self.attr3)?;
+        Ok(())
     }
 }
 
@@ -133,6 +151,28 @@ impl SetFile {
         Ok(SetFile {
             objects: objects,
         })
+    }
+
+    pub fn write_data<P, W>(&self, writeable: &mut W) -> io::Result<()>
+        where P: Platform,
+              W: Write,
+    {
+        writeable.write_u32::<P::Endianess>(self.objects.len() as u32)?;
+
+        // TODO: XXX
+        writeable.write_u32::<P::Endianess>(0)?;
+        writeable.write_u32::<P::Endianess>(0)?;
+        writeable.write_u32::<P::Endianess>(0)?;
+        writeable.write_u32::<P::Endianess>(0)?;
+        writeable.write_u32::<P::Endianess>(0)?;
+        writeable.write_u32::<P::Endianess>(0)?;
+        writeable.write_u32::<P::Endianess>(0)?;
+
+        for object in self.objects.iter() {
+            object.write_data::<P, _>(writeable)?;
+        }
+
+        Ok(())
     }
 
     pub fn into_vec(self) -> Vec<SetObject> {
