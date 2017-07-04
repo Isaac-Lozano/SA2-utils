@@ -1,0 +1,6 @@
+[package]
+name = "prs_util"
+version = "0.1.0"
+authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
+
+[dependencies]
