@@ -15,9 +15,7 @@ fn main() {
     let mut strable = Strable::from_seek(&mut f).unwrap();
 
     for (idx, data) in strable.strings().enumerate() {
-        println!("{:?}", data);
         let text = Sa2Text::from_slice(&data);
         println!("idx {}: {:?}", idx, text);
-        println!("{:?}", text.to_bytes());
     }
 }
