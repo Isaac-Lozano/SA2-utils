@@ -1,6 +1,6 @@
 [package]
 name = "sa2_set"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
 
 [dependencies]

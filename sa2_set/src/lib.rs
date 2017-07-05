@@ -141,7 +141,7 @@ impl SetFile {
         readable.read_u32::<P::Endianess>()?;
         readable.read_u32::<P::Endianess>()?;
 
-        let mut objects = Vec::with_capacity(num_objects as usize);
+        let mut objects = Vec::new();
 
         for _ in 0..num_objects {
             objects.push(SetObject::from_read::<_, P::Endianess>(readable)?);
