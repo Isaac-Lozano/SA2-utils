@@ -106,6 +106,7 @@ fn main() {
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} [options] (INPUT | (-d | -e) INPUT OUTPUT)", program);
+    println!("OnVar's Set Editor ({})", env!("CARGO_PKG_VERSION"));
     print!("{}", opts.usage(&brief));
 }
 
