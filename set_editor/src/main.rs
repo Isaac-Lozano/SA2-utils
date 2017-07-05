@@ -146,7 +146,7 @@ fn decode_file<P>(input: &Path, output: &Path, single_line: bool) -> Result<(), 
                 first = false;
             }
 
-            write!(json_file, "    ").map_err(|_| "Could not write json data.")?;
+            write!(json_file, "  ").map_err(|_| "Could not write json data.")?;
             serde_json::to_writer(&mut json_file, &obj).map_err(|_| "Could not write json data.")?;
         }
         write!(json_file, "\n]").map_err(|_| "Could not write json data.")?;
