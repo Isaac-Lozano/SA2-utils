@@ -137,19 +137,19 @@ fn decode_file<P>(input: &Path, output: &Path, single_line: bool) -> Result<(), 
 
     if single_line {
         let mut first = true;
-        write!(json_file, "[\n").map_err(|_| "Could not write json data.")?;
+        json_file.write_all(b"[\n").map_err(|_| "Could not write json data.")?;
         for obj in set_objs.0 {
             if !first {
-                write!(json_file, ",\n").map_err(|_| "Could not write json data.")?;
+                json_file.write_all(b",\n").map_err(|_| "Could not write json data.")?;
             }
             else {
                 first = false;
             }
 
-            write!(json_file, "  ").map_err(|_| "Could not write json data.")?;
+            json_file.write_all(b"  ").map_err(|_| "Could not write json data.")?;
             serde_json::to_writer(&mut json_file, &obj).map_err(|_| "Could not write json data.")?;
         }
-        write!(json_file, "\n]").map_err(|_| "Could not write json data.")?;
+        json_file.write_all(b"\n]").map_err(|_| "Could not write json data.")?;
     }
     else {
         serde_json::to_writer_pretty(json_file, &set_objs).map_err(|_| "Could not write json data.")?;
