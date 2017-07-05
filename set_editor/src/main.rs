@@ -1,6 +1,10 @@
 extern crate sa2_set;
 extern crate getopts;
+extern crate serde;
 extern crate serde_json;
+
+#[cfg(windows)]
+mod windows_pretty_formatter;
 
 use std::env;
 use std::fs::File;
@@ -9,7 +13,20 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use sa2_set::{SetFile, Platform, Dreamcast, GameCube, Pc};
+use serde::ser::Serialize;
+use serde_json::ser::Serializer;
+#[cfg(not(windows))]
+use serde_json::ser::PrettyFormatter;
 use getopts::Options;
+
+#[cfg(windows)]
+const NEWLINE: &'static [u8] = b"\r\n";
+#[cfg(windows)]
+type Sa2PrettyPrinter = windows_pretty_formatter::WindowsPrettyFormatter<'static>;
+#[cfg(not(windows))]
+const NEWLINE: &'static [u8] = b"\n";
+#[cfg(not(windows))]
+type Sa2PrettyPrinter = PrettyFormatter<'static>;
 
 enum Mode {
     Encode,
@@ -137,10 +154,12 @@ fn decode_file<P>(input: &Path, output: &Path, single_line: bool) -> Result<(), 
 
     if single_line {
         let mut first = true;
-        json_file.write_all(b"[\n").map_err(|_| "Could not write json data.")?;
+        json_file.write_all(b"[").map_err(|_| "Could not write json data.")?;
+        json_file.write_all(NEWLINE).map_err(|_| "Could not write json data.")?;
         for obj in set_objs.0 {
             if !first {
-                json_file.write_all(b",\n").map_err(|_| "Could not write json data.")?;
+                json_file.write_all(b",").map_err(|_| "Could not write json data.")?;
+                json_file.write_all(NEWLINE).map_err(|_| "Could not write json data.")?;
             }
             else {
                 first = false;
@@ -149,10 +168,12 @@ fn decode_file<P>(input: &Path, output: &Path, single_line: bool) -> Result<(), 
             json_file.write_all(b"  ").map_err(|_| "Could not write json data.")?;
             serde_json::to_writer(&mut json_file, &obj).map_err(|_| "Could not write json data.")?;
         }
-        json_file.write_all(b"\n]").map_err(|_| "Could not write json data.")?;
+        json_file.write_all(NEWLINE).map_err(|_| "Could not write json data.")?;
+        json_file.write_all(b"]").map_err(|_| "Could not write json data.")?;
     }
     else {
-        serde_json::to_writer_pretty(json_file, &set_objs).map_err(|_| "Could not write json data.")?;
+        let mut serializer = Serializer::with_formatter(json_file, Sa2PrettyPrinter::new());
+        set_objs.serialize(&mut serializer).map_err(|_| "Could not write json data.")?;
     }
 
     Ok(())
