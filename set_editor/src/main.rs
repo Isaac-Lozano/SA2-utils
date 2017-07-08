@@ -2,9 +2,19 @@ extern crate sa2_set;
 extern crate getopts;
 extern crate serde;
 extern crate serde_json;
+#[cfg(feature="gui")]
+#[macro_use]
+extern crate lazy_static;
+#[cfg(feature="gui")]
+extern crate gtk;
+
 
 #[cfg(windows)]
 mod windows_pretty_formatter;
+#[cfg(feature="gui")]
+mod gui;
+#[cfg(feature="gui")]
+mod obj_table;
 
 use std::env;
 use std::fs::File;
@@ -31,6 +41,7 @@ type Sa2PrettyPrinter = PrettyFormatter<'static>;
 enum Mode {
     Encode,
     Decode,
+    Gui,
     Help,
 }
 
@@ -44,6 +55,7 @@ fn main() {
     opts.optflag("e", "encode", "encode a json file to setfile format");
     opts.optflag("h", "help", "print this help menu");
     opts.optflag("s", "single-line", "write objects on a single line");
+    opts.optflag("g", "gui", "run in gui mode");
 
     let matches = match opts.parse(&args) {
         Ok(m) => m,
@@ -62,6 +74,10 @@ fn main() {
             None => Some(Mode::Decode),
             Some(_) => barf("Only one action can be specified."),
         };
+    }
+
+    if matches.opt_present("g") {
+        mode = Some(Mode::Gui);
     }
 
     if matches.opt_present("h") {
@@ -117,6 +133,9 @@ fn main() {
         Some(Mode::Help) => {
             print_usage(&program, opts);
             process::exit(0);
+        }
+        Some(Mode::Gui) => {
+            run_gui();
         }
     }
 }
@@ -177,4 +196,15 @@ fn decode_file<P>(input: &Path, output: &Path, single_line: bool) -> Result<(), 
     }
 
     Ok(())
+}
+
+#[cfg(feature="gui")]
+fn run_gui() {
+    let mut gui = gui::SetEditorGui::new(None);
+    gui.run().unwrap_or_else(|_| barf("Could not run gui."));
+}
+
+#[cfg(not(feature="gui"))]
+fn run_gui() {
+    barf("Gui support not compiled in.");
 }
