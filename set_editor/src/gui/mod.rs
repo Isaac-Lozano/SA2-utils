@@ -1,8 +1,7 @@
+mod column_type;
+
 use std::fs::File;
-use std::u16;
-use std::u32;
 use std::path::Path;
-use std::str::FromStr;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -11,6 +10,7 @@ use gtk::{self, Builder, Window, TreeView, TreeViewColumn, ListStore, CellRender
 use sa2_set::{SetFile, SetObject, Object, Platform, Dreamcast, GameCube, Pc};
 
 use obj_table::OBJ_TABLE;
+use self::column_type::{ColumnType, ObjectID, XRotation, YRotation, ZRotation, XPosition, YPosition, ZPosition, Attribute1, Attribute2, Attribute3};
 
 const GLADE_SRC: &'static str = include_str!("gui.glade");
 
@@ -39,7 +39,20 @@ impl SetEditorGui {
         let window: Window = builder.get_object("Set Editor").unwrap();
         window.set_default_size(800, 500);
 
-        self.connect_renderers(&builder);
+        let set_list: ListStore = builder.get_object("Set Objects").unwrap();
+
+        let mut columns =  set_grid.get_columns().into_iter();
+        self.connect_renderer::<ObjectID>(columns.next().unwrap(), &set_list);
+        columns.next(); // Object Name
+        self.connect_renderer::<XRotation>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<YRotation>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<ZRotation>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<XPosition>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<YPosition>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<ZPosition>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<Attribute1>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<Attribute2>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<Attribute3>(columns.next().unwrap(), &set_list);
         self.connect_menu(&builder);
 
         let window: Window = builder.get_object("Set Editor").unwrap();
@@ -86,263 +99,20 @@ impl SetEditorGui {
         Ok(())
     }
 
-    fn connect_renderers(&self, builder: &Builder) {
-        let set_list: ListStore = builder.get_object("Set Objects").unwrap();
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Object ID Renderer").unwrap();
-            let object_name_renderer: CellRendererText = builder.get_object("Object Name Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Object ID Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(0);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Object ID: {}", text);
-
-                if let Ok(num) = u16::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:04X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    let empty = "";
-                    let obj_name = OBJ_TABLE.get(&(13, num)).unwrap_or(&empty);
-
-                    set_list.set(&iter, &[0, 1], &[&text, &obj_name]);
-                    set_objs.borrow_mut().0[idx as usize].object = Object(num);
-                    println!("{:#?}", set_objs.borrow_mut().0[idx as usize]);
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("X Rotation Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("X Rotation Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(2);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("X Rotation: {}", text);
-
-                if let Ok(num) = u16::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:04X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[2], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].rotation.x = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Y Rotation Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Y Rotation Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(3);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Y Rotation: {}", text);
-
-                if let Ok(num) = u16::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:04X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[3], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].rotation.y = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Z Rotation Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Z Rotation Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(4);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Z Rotation: {}", text);
-
-                if let Ok(num) = u16::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:04X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[4], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].rotation.z = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("X Position Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("X Position Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(5);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("X Position: {}", text);
-
-                if let Ok(num) = f32::from_str(text) {
-                    // Should be file since this is a list store.
-                    let text = format!("{}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[5], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].position.x = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Y Position Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Y Position Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(6);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Y Position: {}", text);
-
-                if let Ok(num) = f32::from_str(text) {
-                    // Should be file since this is a list store.
-                    let text = format!("{}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[6], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].position.y = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Z Position Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Z Position Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(7);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Z Position: {}", text);
-
-                if let Ok(num) = f32::from_str(text) {
-                    // Should be file since this is a list store.
-                    let text = format!("{}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[7], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].position.z = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Attribute 1 Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Attribute 1 Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(8);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Attribute 1: {}", text);
-
-                if let Ok(num) = u32::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:08X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[8], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].attr1 = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Attribute 2 Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Attribute 2 Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(9);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Attribute 2: {}", text);
-
-                if let Ok(num) = u32::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:08X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[9], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].attr2 = num;
-                }
-            });
-        }
-
-        {
-            let object_id_renderer: CellRendererText = builder.get_object("Attribute 3 Renderer").unwrap();
-            let object_id_column: TreeViewColumn = builder.get_object("Attribute 3 Column").unwrap();
-
-            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
-            object_id_column.connect_clicked(move |_| {
-                set_grid.set_search_column(10);
-            });
-
-            let set_list = set_list.clone();
-            let set_objs = self.set_objs.clone();
-            object_id_renderer.connect_edited(move |_, tree_path, text| {
-                println!("Attribute 3: {}", text);
-
-                if let Ok(num) = u32::from_str_radix(text, 16) {
-                    // Should be file since this is a list store.
-                    let text = format!("{:08X}", num);
-                    let idx = tree_path.get_indices()[0];
-                    let iter = set_list.get_iter(&tree_path).unwrap();
-                    set_list.set(&iter, &[10], &[&text]);
-                    set_objs.borrow_mut().0[idx as usize].attr3 = num;
-                }
-            });
-        }
+    fn connect_renderer<T>(&self, column: TreeViewColumn, set_list: &ListStore)
+        where T: ColumnType
+    {
+        // XXX: Technically should be fine because all renderers are CellRendererText,
+        // but downcasting is ugly.
+        let renderer: CellRendererText = column.get_cells()[0].clone().downcast().unwrap();
+        let set_list: ListStore = set_list.clone();
+        let set_objs = self.set_objs.clone();
+        renderer.connect_edited(move |_, tree_path, text| {
+            if let Ok(value) = T::from_str(text) {
+                value.update_column(&set_list, &tree_path);
+                value.update_obj(&set_objs, &tree_path);
+            }
+        });
     }
 
     fn connect_menu(&self, builder: &Builder) {
