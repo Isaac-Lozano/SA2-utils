@@ -1,20 +1,17 @@
 extern crate sa2_set;
 extern crate getopts;
 extern crate serde;
-extern crate serde_json;
-#[cfg(feature="gui")]
 #[macro_use]
-extern crate lazy_static;
+extern crate serde_derive;
+extern crate serde_json;
 #[cfg(feature="gui")]
 extern crate gtk;
 
-
+mod obj_table;
 #[cfg(windows)]
 mod windows_pretty_formatter;
 #[cfg(feature="gui")]
 mod gui;
-#[cfg(feature="gui")]
-mod obj_table;
 
 use std::env;
 use std::fs::File;
