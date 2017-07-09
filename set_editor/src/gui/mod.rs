@@ -4,9 +4,10 @@ use std::fs::File;
 use std::path::Path;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::str::FromStr;
 
 use gtk::prelude::*;
-use gtk::{self, Builder, Window, TreeView, TreeViewColumn, ListStore, CellRendererText, MenuItem, FileChooserDialog, FileChooserAction, ResponseType, TreeViewGridLines};
+use gtk::{self, Builder, Window, Statusbar, TreeView, TreeViewColumn, TreeIter, ListStore, CellRendererText, MenuItem, FileChooserDialog, FileChooserAction, ResponseType, TreeViewGridLines, RadioButton, Entry, Button};
 use sa2_set::{SetFile, SetObject, Object, Platform, Dreamcast, GameCube, Pc};
 
 use obj_table::OBJ_TABLE;
@@ -36,23 +37,21 @@ impl SetEditorGui {
         set_grid.set_headers_clickable(true);
         set_grid.set_property_enable_grid_lines(TreeViewGridLines::Both);
 
-        let window: Window = builder.get_object("Set Editor").unwrap();
-        window.set_default_size(800, 500);
-
         let set_list: ListStore = builder.get_object("Set Objects").unwrap();
 
-        let mut columns =  set_grid.get_columns().into_iter();
-        self.connect_renderer::<ObjectID>(columns.next().unwrap(), &set_list);
+        let mut columns = set_grid.get_columns().into_iter();
+        columns.next(); // Index
+        self.connect_renderer::<ObjectID>(columns.next().unwrap(), 1, &set_list);
         columns.next(); // Object Name
-        self.connect_renderer::<XRotation>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<YRotation>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<ZRotation>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<XPosition>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<YPosition>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<ZPosition>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<Attribute1>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<Attribute2>(columns.next().unwrap(), &set_list);
-        self.connect_renderer::<Attribute3>(columns.next().unwrap(), &set_list);
+        self.connect_renderer::<XRotation>(columns.next().unwrap(), 3, &set_list);
+        self.connect_renderer::<YRotation>(columns.next().unwrap(), 4, &set_list);
+        self.connect_renderer::<ZRotation>(columns.next().unwrap(), 5, &set_list);
+        self.connect_renderer::<XPosition>(columns.next().unwrap(), 6, &set_list);
+        self.connect_renderer::<YPosition>(columns.next().unwrap(), 7, &set_list);
+        self.connect_renderer::<ZPosition>(columns.next().unwrap(), 8, &set_list);
+        self.connect_renderer::<Attribute1>(columns.next().unwrap(), 9, &set_list);
+        self.connect_renderer::<Attribute2>(columns.next().unwrap(), 10, &set_list);
+        self.connect_renderer::<Attribute3>(columns.next().unwrap(), 11, &set_list);
         self.connect_menu(&builder);
 
         let window: Window = builder.get_object("Set Editor").unwrap();
@@ -66,31 +65,14 @@ impl SetEditorGui {
         Ok(())
     }
 
-    fn load_file(self_set_objs: &Rc<RefCell<SetFile>>, filename: &Path, set_list: &ListStore) {
-        let mut file = File::open(filename).unwrap();
-        let set_objs = SetFile::from_read::<Pc, _>(&mut file).unwrap();
-
-        set_list.clear();
-    
-        for obj in set_objs.0.iter() {
-            let empty = "";
-
-            let obj_id = format!("{:04X}", obj.object.0);
-            let obj_name = OBJ_TABLE.get(&(13, obj.object.0)).unwrap_or(&empty);
-            let rot_x = format!("{:04X}", obj.rotation.x);
-            let rot_y = format!("{:04X}", obj.rotation.y);
-            let rot_z = format!("{:04X}", obj.rotation.z);
-            let pos_x = obj.position.x.to_string();
-            let pos_y = obj.position.y.to_string();
-            let pos_z = obj.position.z.to_string();
-            let attr_1 = format!("{:08X}", obj.attr1);
-            let attr_2 = format!("{:08X}", obj.attr2);
-            let attr_3 = format!("{:08X}", obj.attr3);
-    
-            set_list.insert_with_values(None, &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], &[&obj_id, &obj_name, &rot_x, &rot_y, &rot_z, &pos_x, &pos_y, &pos_z, &attr_1, &attr_2, &attr_3]);
-        }
+    fn load_file(self_set_objs: &Rc<RefCell<SetFile>>, filename: &Path, set_list: &ListStore) -> Result<(), &'static str> {
+        let mut file = File::open(filename).map_err(|_| "Could not open file.")?;
+        let set_objs = SetFile::from_read::<Pc, _>(&mut file).map_err(|_| "Could not parse set file.")?;
 
         *self_set_objs.borrow_mut() = set_objs;
+
+        Self::update_grid(self_set_objs, set_list);
+        Ok(())
     }
 
     fn save_file(set_objs: &Rc<RefCell<SetFile>>, filename: &Path) -> Result<(), &'static str> {
@@ -99,7 +81,31 @@ impl SetEditorGui {
         Ok(())
     }
 
-    fn connect_renderer<T>(&self, column: TreeViewColumn, set_list: &ListStore)
+    fn update_grid(self_set_objs: &Rc<RefCell<SetFile>>, set_list: &ListStore) {
+        set_list.clear();
+    
+        let mut index = 0;
+        for obj in self_set_objs.borrow_mut().0.iter() {
+            let empty = "";
+
+            let obj_id = format!("{:04X}", obj.object.0);
+            let obj_name = OBJ_TABLE.get(&(13, obj.object.0)).unwrap_or(&empty);
+            let rot_x = format!("{:04X}", obj.rotation.x);
+            let rot_y = format!("{:04X}", obj.rotation.y);
+            let rot_z = format!("{:04X}", obj.rotation.z);
+            let pos_x = obj.position.x;
+            let pos_y = obj.position.y;
+            let pos_z = obj.position.z;
+            let attr_1 = format!("{:08X}", obj.attr1);
+            let attr_2 = format!("{:08X}", obj.attr2);
+            let attr_3 = format!("{:08X}", obj.attr3);
+    
+            set_list.insert_with_values(None, &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], &[&index, &obj_id, &obj_name, &rot_x, &rot_y, &rot_z, &pos_x, &pos_y, &pos_z, &attr_1, &attr_2, &attr_3]);
+            index += 1;
+        }
+    }
+
+    fn connect_renderer<T>(&self, column: TreeViewColumn, id: i32, set_list: &ListStore)
         where T: ColumnType
     {
         // XXX: Technically should be fine because all renderers are CellRendererText,
@@ -109,10 +115,15 @@ impl SetEditorGui {
         let set_objs = self.set_objs.clone();
         renderer.connect_edited(move |_, tree_path, text| {
             if let Ok(value) = T::from_str(text) {
+                let iter = set_list.get_iter(&tree_path).unwrap();
+                let idx = set_list.get_value(&iter, 0).get::<u32>().unwrap() as usize;
+                value.update_obj(&set_objs, idx);
+
                 value.update_column(&set_list, &tree_path);
-                value.update_obj(&set_objs, &tree_path);
             }
         });
+
+        column.set_sort_column_id(id);
     }
 
     fn connect_menu(&self, builder: &Builder) {
@@ -121,6 +132,8 @@ impl SetEditorGui {
         {
             let open: MenuItem = builder.get_object("Open").unwrap();
             let set_list: ListStore = builder.get_object("Set Objects").unwrap();
+            let statusbar: Statusbar = builder.get_object("Status Bar").unwrap();
+            let open_id = statusbar.get_context_id("Open Info");
             let set_objs = self.set_objs.clone();
             let window = window.clone();
             open.connect_activate(move |_| {
@@ -132,8 +145,14 @@ impl SetEditorGui {
 
                 if response == Into::<i32>::into(ResponseType::Accept) {
                     if let Some(path) = file_chooser.get_filename() {
-                        Self::load_file(&set_objs, &path, &set_list);
-                        println!("Opened: {:#?}", path);
+                        match Self::load_file(&set_objs, &path, &set_list) {
+                            Ok(_) => {
+                                statusbar.push(open_id, &format!("Successfully opened file: {}", path.to_str().unwrap_or("")));
+                            }
+                            Err(e) => {
+                                statusbar.push(open_id, &format!("Error: {}", e));
+                            }
+                        }
                     }
                 }
 
@@ -143,6 +162,8 @@ impl SetEditorGui {
 
         {
             let save: MenuItem = builder.get_object("Save As").unwrap();
+            let statusbar: Statusbar = builder.get_object("Status Bar").unwrap();
+            let save_id = statusbar.get_context_id("Save Info");
             let set_objs = self.set_objs.clone();
             let window = window.clone();
             save.connect_activate(move |_| {
@@ -158,8 +179,14 @@ impl SetEditorGui {
                 if response == Into::<i32>::into(ResponseType::Accept) {
                     if let Some(path) = file_chooser.get_filename() {
                         // TODO: error handling
-                        Self::save_file(&set_objs, &path).unwrap();
-                        println!("Saved: {:#?}", path);
+                        match Self::save_file(&set_objs, &path) {
+                            Ok(_) => {
+                                statusbar.push(save_id, &format!("Successfully saved file: {}", path.to_str().unwrap_or("")));
+                            }
+                            Err(e) => {
+                                statusbar.push(save_id, &format!("Error: {}", e));
+                            }
+                        }
                     }
                 }
 
@@ -177,11 +204,10 @@ impl SetEditorGui {
                 let iter_opt = paths.get(0).map(|path| model.get_iter(path).unwrap());
                 let object = SetObject::default();
 
-                let idx = paths.get(0).map(|path| path.get_indices()[0] as usize).unwrap_or(0);
+                let idx = iter_opt.map(|iter| set_list.get_value(&iter, 0).get::<u32>().unwrap() as usize + 1).unwrap_or(0);
                 set_objs.borrow_mut().0.insert(idx, object);
 
-                let inserted_iter = set_list.insert_after(iter_opt.as_ref());
-                set_list.set(&inserted_iter, &[0, 2, 3, 4, 5, 6, 7, 8, 9, 10], &[&"0000", &"0000", &"0000", &"0000", &"0", &"0", &"0", &"00000000", &"00000000", &"00000000"]);
+                Self::update_grid(&set_objs, &set_list);
             });
         }
 
@@ -191,13 +217,187 @@ impl SetEditorGui {
             let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
             let set_objs = self.set_objs.clone();
             add_object.connect_activate(move |_| {
-                let (paths, model) = set_grid.get_selection().get_selected_rows();
+                let (paths, _) = set_grid.get_selection().get_selected_rows();
                 for path in paths {
-                    let iter = model.get_iter(&path).unwrap();
-                    set_list.remove(&iter);
-
                     let idx = path.get_indices()[0] as usize;
                     set_objs.borrow_mut().0.remove(idx);
+                }
+
+                Self::update_grid(&set_objs, &set_list);
+            });
+        }
+
+        {
+            let column_search: MenuItem = builder.get_object("Column Search").unwrap();
+            let search_window: Window = builder.get_object("Search Window").unwrap();
+            search_window.connect_delete_event(|sw, _| {
+                sw.hide();
+                Inhibit(true)
+            });
+            column_search.connect_activate(move |_| {
+                search_window.show_all();
+            });
+        }
+
+        // Search dialog stuff
+        {
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            let search_entry: Entry = builder.get_object("Search Entry").unwrap();
+            set_grid.set_search_entry(&search_entry);
+        }
+
+        {
+            let index_radio_button: RadioButton = builder.get_object("Index Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            index_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(0);
+            });
+        }
+
+        {
+            let object_id_radio_button: RadioButton = builder.get_object("Object ID Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            object_id_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(1);
+            });
+        }
+
+        {
+            let object_name_radio_button: RadioButton = builder.get_object("Object Name Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            object_name_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(2);
+            });
+        }
+
+        {
+            let x_rotation_radio_button: RadioButton = builder.get_object("X Rotation Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            x_rotation_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(3);
+            });
+        }
+
+        {
+            let y_rotation_radio_button: RadioButton = builder.get_object("Y Rotation Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            y_rotation_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(4);
+            });
+        }
+
+        {
+            let z_rotation_radio_button: RadioButton = builder.get_object("Z Rotation Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            z_rotation_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(5);
+            });
+        }
+
+        {
+            let x_position_radio_button: RadioButton = builder.get_object("X Position Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            x_position_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(6);
+            });
+        }
+
+        {
+            let y_position_radio_button: RadioButton = builder.get_object("Y Position Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            y_position_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(7);
+            });
+        }
+
+        {
+            let z_position_radio_button: RadioButton = builder.get_object("Z Position Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            z_position_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(8);
+            });
+        }
+
+        {
+            let attribute_1_radio_button: RadioButton = builder.get_object("Attribute 1 Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            attribute_1_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(9);
+            });
+        }
+
+        {
+            let attribute_2_radio_button: RadioButton = builder.get_object("Attribute 2 Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            attribute_2_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(10);
+            });
+        }
+
+        {
+            let attribute_3_radio_button: RadioButton = builder.get_object("Attribute 3 Radio Button").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            attribute_3_radio_button.connect_clicked(move |_| {
+                set_grid.set_search_column(11);
+            });
+        }
+
+        {
+            let distance_search: MenuItem = builder.get_object("Distance Search").unwrap();
+            let point_search_window: Window = builder.get_object("Point Search Window").unwrap();
+            point_search_window.connect_delete_event(|sw, _| {
+                sw.hide();
+                Inhibit(true)
+            });
+            distance_search.connect_activate(move |_| {
+                point_search_window.show_all();
+            });
+        }
+
+        {
+            let point_search_button: Button = builder.get_object("Point Search Button").unwrap();
+            let set_list: ListStore = builder.get_object("Set Objects").unwrap();
+            let set_grid: TreeView = builder.get_object("Set Grid").unwrap();
+            let x_position_entry: Entry = builder.get_object("X Position Entry").unwrap();
+            let y_position_entry: Entry = builder.get_object("Y Position Entry").unwrap();
+            let z_position_entry: Entry = builder.get_object("Z Position Entry").unwrap();
+            let statusbar: Statusbar = builder.get_object("Status Bar").unwrap();
+            let search_id = statusbar.get_context_id("Search Info");
+            point_search_button.connect_clicked(move |_| {
+                let position_opt = x_position_entry.get_text().and_then(|text| f32::from_str(&text).ok())
+                    .and_then(|x| y_position_entry.get_text().and_then(|text| f32::from_str(&text).ok()).map(|y| (x, y)))
+                    .and_then(|(x, y)| z_position_entry.get_text().and_then(|text| f32::from_str(&text).ok()).map(|z| (x, y, z)));
+
+                if let Some((x, y, z)) = position_opt {
+                    let mut closest: Option<(f32, TreeIter)> = None;
+
+                    let mut iter = set_list.get_iter_first();
+                    while let Some(row) = iter {
+                        let row_x = set_list.get_value(&row, 6).get::<f32>().unwrap();
+                        let row_y = set_list.get_value(&row, 7).get::<f32>().unwrap();
+                        let row_z = set_list.get_value(&row, 8).get::<f32>().unwrap();
+
+                        let distance_squared = (row_x - x) * (row_x - x) + (row_y - y) * (row_y - y) + (row_z - z) * (row_z - z);
+                        if closest.is_none() || distance_squared < closest.as_ref().unwrap().0 {
+                            closest = Some((distance_squared, row.clone()));
+                        }
+
+                        if set_list.iter_next(&row) {
+                            iter = Some(row);
+                        }
+                        else {
+                            iter = None;
+                        }
+                    }
+
+                    if let Some((_, iter)) = closest {
+                        set_grid.get_selection().select_iter(&iter);
+                        let path = set_list.get_path(&iter).unwrap();
+                        set_grid.set_cursor(&path, None, false);
+                    }
+                }
+                else {
+                    statusbar.push(search_id, "Position values cannot be parsed as floats.");
                 }
             });
         }

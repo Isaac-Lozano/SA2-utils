@@ -5,10 +5,10 @@ use std::io::{self, Read, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt, ByteOrder, LittleEndian, BigEndian};
 
-#[derive(Clone,Copy,Debug,Serialize,Deserialize)]
+#[derive(Clone,Copy,Debug,Default,Serialize,Deserialize)]
 pub struct Object(pub u16);
 
-#[derive(Clone,Copy,Debug,Serialize,Deserialize)]
+#[derive(Clone,Copy,Debug,Default,Serialize,Deserialize)]
 pub struct Rotation {
     pub x: u16,
     pub y: u16,
@@ -42,7 +42,7 @@ impl Rotation {
     }
 }
 
-#[derive(Clone,Copy,Debug,Serialize,Deserialize)]
+#[derive(Clone,Copy,Debug,Default,Serialize,Deserialize)]
 pub struct Position {
     pub x: f32,
     pub y: f32,
@@ -76,7 +76,7 @@ impl Position {
     }
 }
 
-#[derive(Clone,Copy,Debug,Serialize,Deserialize)]
+#[derive(Clone,Copy,Debug,Default,Serialize,Deserialize)]
 pub struct SetObject {
     pub object: Object,
     pub rotation: Rotation,
@@ -122,7 +122,7 @@ impl SetObject {
     }
 }
 
-#[derive(Clone,Debug,Serialize,Deserialize)]
+#[derive(Clone,Debug,Default,Serialize,Deserialize)]
 pub struct SetFile(pub Vec<SetObject>);
 
 impl SetFile {

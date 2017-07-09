@@ -14,7 +14,7 @@ use obj_table::OBJ_TABLE;
 
 pub trait ColumnType: FromStr {
     fn update_column(&self, set_list: &ListStore, path: &TreePath);
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath);
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize);
 }
 
 pub struct ObjectID(pub u16);
@@ -34,12 +34,11 @@ impl ColumnType for ObjectID {
 
         let empty = "";
         let obj_name = OBJ_TABLE.get(&(13, self.0)).unwrap_or(&empty);
-        set_list.set(&iter, &[0, 1], &[&text, &obj_name]);
+        set_list.set(&iter, &[1, 2], &[&text, &obj_name]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].object = Object(self.0);
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].object = Object(self.0);
     }
 }
 
@@ -57,12 +56,11 @@ impl ColumnType for XRotation {
         println!("X Rotation: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[2], &[&text]);
+        set_list.set(&iter, &[3], &[&text]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].rotation.x = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].rotation.x = self.0;
     }
 }
 
@@ -80,12 +78,11 @@ impl ColumnType for YRotation {
         println!("Y Rotation: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[3], &[&text]);
+        set_list.set(&iter, &[4], &[&text]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].rotation.y = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].rotation.y = self.0;
     }
 }
 
@@ -103,12 +100,11 @@ impl ColumnType for ZRotation {
         println!("Z Rotation: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[4], &[&text]);
+        set_list.set(&iter, &[5], &[&text]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].rotation.z = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].rotation.z = self.0;
     }
 }
 
@@ -124,14 +120,12 @@ impl FromStr for XPosition {
 impl ColumnType for XPosition {
     fn update_column(&self, set_list: &ListStore, path: &TreePath) {
         println!("X Position: {}", self.0);
-        let text = format!("{}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[5], &[&text]);
+        set_list.set(&iter, &[6], &[&self.0]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].position.x = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].position.x = self.0;
     }
 }
 
@@ -147,14 +141,12 @@ impl FromStr for YPosition {
 impl ColumnType for YPosition {
     fn update_column(&self, set_list: &ListStore, path: &TreePath) {
         println!("Y Position: {}", self.0);
-        let text = format!("{}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[6], &[&text]);
+        set_list.set(&iter, &[7], &[&self.0]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].position.y = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].position.y = self.0;
     }
 }
 
@@ -170,14 +162,12 @@ impl FromStr for ZPosition {
 impl ColumnType for ZPosition {
     fn update_column(&self, set_list: &ListStore, path: &TreePath) {
         println!("Z Position: {}", self.0);
-        let text = format!("{}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[7], &[&text]);
+        set_list.set(&iter, &[8], &[&self.0]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].position.z = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].position.z = self.0;
     }
 }
 
@@ -195,12 +185,11 @@ impl ColumnType for Attribute1 {
         println!("Attribute 1: {:08X}", self.0);
         let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[8], &[&text]);
+        set_list.set(&iter, &[9], &[&text]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].attr1 = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].attr1 = self.0;
     }
 }
 
@@ -218,12 +207,11 @@ impl ColumnType for Attribute2 {
         println!("Attribute 2: {:08X}", self.0);
         let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[9], &[&text]);
+        set_list.set(&iter, &[10], &[&text]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].attr2 = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].attr2 = self.0;
     }
 }
 
@@ -241,11 +229,10 @@ impl ColumnType for Attribute3 {
         println!("Attribute 3: {:08X}", self.0);
         let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[10], &[&text]);
+        set_list.set(&iter, &[11], &[&text]);
     }
 
-    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, path: &TreePath) {
-        let idx = path.get_indices()[0];
-        set_objs.borrow_mut().0[idx as usize].attr3 = self.0;
+    fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
+        set_objs.borrow_mut().0[idx].attr3 = self.0;
     }
 }
