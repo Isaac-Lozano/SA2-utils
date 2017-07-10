@@ -81,9 +81,9 @@ pub struct SetObject {
     pub object: Object,
     pub rotation: Rotation,
     pub position: Position,
-    pub attr1: u32,
-    pub attr2: u32,
-    pub attr3: u32,
+    pub attr1: f32,
+    pub attr2: f32,
+    pub attr3: f32,
 }
 
 impl SetObject {
@@ -94,9 +94,9 @@ impl SetObject {
         let object = Object(readable.read_u16::<E>()?);
         let rotation = Rotation::from_read::<R, E>(readable)?;
         let position = Position::from_read::<R, E>(readable)?;
-        let attr1 = readable.read_u32::<E>()?;
-        let attr2 = readable.read_u32::<E>()?;
-        let attr3 = readable.read_u32::<E>()?;
+        let attr1 = readable.read_f32::<E>()?;
+        let attr2 = readable.read_f32::<E>()?;
+        let attr3 = readable.read_f32::<E>()?;
 
         Ok(SetObject {
             object: object,
@@ -115,9 +115,9 @@ impl SetObject {
         writeable.write_u16::<P::Endianess>(self.object.0)?;
         self.rotation.write_data::<P, _>(writeable)?;
         self.position.write_data::<P, _>(writeable)?;
-        writeable.write_u32::<P::Endianess>(self.attr1)?;
-        writeable.write_u32::<P::Endianess>(self.attr2)?;
-        writeable.write_u32::<P::Endianess>(self.attr3)?;
+        writeable.write_f32::<P::Endianess>(self.attr1)?;
+        writeable.write_f32::<P::Endianess>(self.attr2)?;
+        writeable.write_f32::<P::Endianess>(self.attr3)?;
         Ok(())
     }
 }
