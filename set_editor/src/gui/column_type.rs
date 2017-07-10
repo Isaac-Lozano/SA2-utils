@@ -165,20 +165,19 @@ impl ColumnType for ZPosition {
     }
 }
 
-pub struct Attribute1(pub u32);
+pub struct Attribute1(pub f32);
 
 impl FromStr for Attribute1 {
-    type Err = num::ParseIntError;
+    type Err = num::ParseFloatError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Attribute1(u32::from_str_radix(s, 16)?))
+        Ok(Attribute1(f32::from_str(s)?))
     }
 }
 
 impl ColumnType for Attribute1 {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[9], &[&text]);
+        set_list.set(&iter, &[9], &[&self.0]);
     }
 
     fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
@@ -186,20 +185,19 @@ impl ColumnType for Attribute1 {
     }
 }
 
-pub struct Attribute2(pub u32);
+pub struct Attribute2(pub f32);
 
 impl FromStr for Attribute2 {
-    type Err = num::ParseIntError;
+    type Err = num::ParseFloatError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Attribute2(u32::from_str_radix(s, 16)?))
+        Ok(Attribute2(f32::from_str(s)?))
     }
 }
 
 impl ColumnType for Attribute2 {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[10], &[&text]);
+        set_list.set(&iter, &[10], &[&self.0]);
     }
 
     fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {
@@ -207,20 +205,19 @@ impl ColumnType for Attribute2 {
     }
 }
 
-pub struct Attribute3(pub u32);
+pub struct Attribute3(pub f32);
 
 impl FromStr for Attribute3 {
-    type Err = num::ParseIntError;
+    type Err = num::ParseFloatError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Attribute3(u32::from_str_radix(s, 16)?))
+        Ok(Attribute3(f32::from_str(s)?))
     }
 }
 
 impl ColumnType for Attribute3 {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
-        set_list.set(&iter, &[11], &[&text]);
+        set_list.set(&iter, &[11], &[&self.0]);
     }
 
     fn update_obj(&self, set_objs: &Rc<RefCell<SetFile>>, idx: usize) {

@@ -28,11 +28,11 @@
       <!-- column-name z_position -->
       <column type="gfloat"/>
       <!-- column-name attribute1 -->
-      <column type="gchararray"/>
+      <column type="gfloat"/>
       <!-- column-name attribute2 -->
-      <column type="gchararray"/>
+      <column type="gfloat"/>
       <!-- column-name attribute3 -->
-      <column type="gchararray"/>
+      <column type="gfloat"/>
     </columns>
   </object>
   <object class="GtkWindow" id="Set Editor">

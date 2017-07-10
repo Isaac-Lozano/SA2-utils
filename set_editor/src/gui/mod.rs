@@ -113,9 +113,9 @@ impl SetEditorGui {
             let pos_x = obj.position.x;
             let pos_y = obj.position.y;
             let pos_z = obj.position.z;
-            let attr_1 = format!("{:08X}", obj.attr1);
-            let attr_2 = format!("{:08X}", obj.attr2);
-            let attr_3 = format!("{:08X}", obj.attr3);
+            let attr_1 = obj.attr1;
+            let attr_2 = obj.attr2;
+            let attr_3 = obj.attr3;
     
             set_list.insert_with_values(None, &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], &[&index, &obj_id, &obj_name, &rot_x, &rot_y, &rot_z, &pos_x, &pos_y, &pos_z, &attr_1, &attr_2, &attr_3]);
             index += 1;
