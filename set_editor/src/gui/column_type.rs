@@ -28,7 +28,6 @@ impl FromStr for ObjectID {
 
 impl ColumnType for ObjectID {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, obj_table: &Rc<RefCell<Option<ObjectTable>>>, level: u16) {
-        println!("Object ID: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
 
@@ -54,7 +53,6 @@ impl FromStr for XRotation {
 
 impl ColumnType for XRotation {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("X Rotation: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[3], &[&text]);
@@ -76,7 +74,6 @@ impl FromStr for YRotation {
 
 impl ColumnType for YRotation {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Y Rotation: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[4], &[&text]);
@@ -98,7 +95,6 @@ impl FromStr for ZRotation {
 
 impl ColumnType for ZRotation {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Z Rotation: {:04X}", self.0);
         let text = format!("{:04X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[5], &[&text]);
@@ -120,7 +116,6 @@ impl FromStr for XPosition {
 
 impl ColumnType for XPosition {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("X Position: {}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[6], &[&self.0]);
     }
@@ -141,7 +136,6 @@ impl FromStr for YPosition {
 
 impl ColumnType for YPosition {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Y Position: {}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[7], &[&self.0]);
     }
@@ -162,7 +156,6 @@ impl FromStr for ZPosition {
 
 impl ColumnType for ZPosition {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Z Position: {}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[8], &[&self.0]);
     }
@@ -183,7 +176,6 @@ impl FromStr for Attribute1 {
 
 impl ColumnType for Attribute1 {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Attribute 1: {:08X}", self.0);
         let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[9], &[&text]);
@@ -205,7 +197,6 @@ impl FromStr for Attribute2 {
 
 impl ColumnType for Attribute2 {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Attribute 2: {:08X}", self.0);
         let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[10], &[&text]);
@@ -227,7 +218,6 @@ impl FromStr for Attribute3 {
 
 impl ColumnType for Attribute3 {
     fn update_column(&self, set_list: &ListStore, path: &TreePath, _obj_table: &Rc<RefCell<Option<ObjectTable>>>, _level: u16) {
-        println!("Attribute 3: {:08X}", self.0);
         let text = format!("{:08X}", self.0);
         let iter = set_list.get_iter(&path).unwrap();
         set_list.set(&iter, &[11], &[&text]);

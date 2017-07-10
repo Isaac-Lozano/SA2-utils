@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 extern crate sa2_set;
 extern crate getopts;
 extern crate serde;
@@ -34,6 +35,10 @@ type Sa2PrettyPrinter = windows_pretty_formatter::WindowsPrettyFormatter<'static
 const NEWLINE: &'static [u8] = b"\n";
 #[cfg(not(windows))]
 type Sa2PrettyPrinter = PrettyFormatter<'static>;
+#[cfg(feature="gui")]
+const NO_ARGS_MEANS_GUI: bool = true;
+#[cfg(not(feature="gui"))]
+const NO_ARGS_MEANS_GUI: bool = false;
 
 enum Mode {
     Encode,
@@ -102,37 +107,42 @@ fn main() {
                 Err(e) => barf(&e.to_string()),
             }
         }
-        None => {
-            let input: PathBuf = matches.free.get(0).unwrap_or_else(|| barf("No input file specified.")).into();
-            match input.extension() {
-                Some(os_str) => {
-                    match os_str.to_str() {
-                        Some("json") => {
-                            let output = input.with_extension("bin");
-                            match encode_file::<GameCube>(&input, &output) {
-                                Ok(_) => println!("Successfully encoded file."),
-                                Err(e) => barf(&e.to_string()),
-                            }
-                        }
-                        Some("bin") => {
-                            let output = input.with_extension("json");
-                            match decode_file::<GameCube>(&input, &output, single_line) {
-                                Ok(_) => println!("Successfully decoded file."),
-                                Err(e) => barf(&e.to_string()),
-                            }
-                        }
-                        _ => barf("Not a json or a set file."),
-                    }
-                }
-                _ => barf("Not a json or a set file."),
-            }
-        }
         Some(Mode::Help) => {
             print_usage(&program, opts);
             process::exit(0);
         }
         Some(Mode::Gui) => {
             run_gui();
+        }
+        None => {
+            if matches.free.is_empty() && NO_ARGS_MEANS_GUI {
+                run_gui();
+            }
+            else {
+                let input: PathBuf = matches.free.get(0).unwrap_or_else(|| barf("No input file specified.")).into();
+                match input.extension() {
+                    Some(os_str) => {
+                        match os_str.to_str() {
+                            Some("json") => {
+                                let output = input.with_extension("bin");
+                                match encode_file::<GameCube>(&input, &output) {
+                                    Ok(_) => println!("Successfully encoded file."),
+                                    Err(e) => barf(&e.to_string()),
+                                }
+                            }
+                            Some("bin") => {
+                                let output = input.with_extension("json");
+                                match decode_file::<GameCube>(&input, &output, single_line) {
+                                    Ok(_) => println!("Successfully decoded file."),
+                                    Err(e) => barf(&e.to_string()),
+                                }
+                            }
+                            _ => barf("Not a json or a set file."),
+                        }
+                    }
+                    _ => barf("Not a json or a set file."),
+                }
+            }
         }
     }
 }

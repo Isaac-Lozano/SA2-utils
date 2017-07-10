@@ -44,9 +44,9 @@ impl SetEditorGui {
         let level_adjustment: Adjustment = builder.get_object("Level Adjustment").unwrap();
 
         let mut columns = set_grid.get_columns().into_iter();
-        columns.next(); // Index
+        columns.next().unwrap().set_sort_column_id(0); // Index
         self.connect_renderer::<ObjectID>(columns.next().unwrap(), 1, &set_list, &level_adjustment);
-        columns.next(); // Object Name
+        columns.next().unwrap().set_sort_column_id(2); // Object Name
         self.connect_renderer::<XRotation>(columns.next().unwrap(), 3, &set_list, &level_adjustment);
         self.connect_renderer::<YRotation>(columns.next().unwrap(), 4, &set_list, &level_adjustment);
         self.connect_renderer::<ZRotation>(columns.next().unwrap(), 5, &set_list, &level_adjustment);
@@ -430,7 +430,6 @@ impl SetEditorGui {
             let self_clone = self.clone();
             level_adjustment.connect_value_changed(move |adj| {
                 self_clone.update_grid(&set_list, &adj);
-                println!("{:#?}", self_clone.obj_table);
             });
         }
     }
