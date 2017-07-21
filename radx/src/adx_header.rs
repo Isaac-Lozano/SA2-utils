@@ -5,16 +5,19 @@ use adx_reader::AdxReader;
 const ADX_MAGIC: u16 = 0x8000;
 
 #[derive(Clone,Copy,Debug)]
+pub struct AdxVersion3LoopInfo {
+    alignment_samples: u16,
+    enabled_short: u16,
+    enabled_int: u32,
+    begin_sample: u32,
+    begin_byte: u32,
+    end_sample: u32,
+    end_byte: u32,
+}
+
+#[derive(Clone,Debug)]
 pub enum AdxVersion {
-    Version3 {
-        loop_alignment_samples: u16,
-        loop_enabled_short: u16,
-        loop_enabled_int: u32,
-        loop_begin_sample: u32,
-        loop_begin_byte: u32,
-        loop_end_sample: u32,
-        loop_end_byte: u32,
-    },
+    Version3(Option<AdxVersion3LoopInfo>),
     Version4,
     /// Version 4 without looping support
     Version5,
@@ -70,22 +73,30 @@ impl AdxHeader {
         let flags = inner.read_u8()?;
         let version = match version_byte {
             0x03 => {
-                let loop_alignment_samples = inner.read_u16()?;
-                let loop_enabled_short = inner.read_u16()?;
-                let loop_enabled_int = inner.read_u32()?;
-                let loop_begin_sample = inner.read_u32()?;
-                let loop_begin_byte = inner.read_u32()?;
-                let loop_end_sample = inner.read_u32()?;
-                let loop_end_byte = inner.read_u32()?;
-                AdxVersion::Version3 {
-                    loop_alignment_samples: loop_alignment_samples,
-                    loop_enabled_short: loop_enabled_short,
-                    loop_enabled_int: loop_enabled_int,
-                    loop_begin_sample: loop_begin_sample,
-                    loop_begin_byte: loop_begin_byte,
-                    loop_end_sample: loop_end_sample,
-                    loop_end_byte: loop_end_byte,
+                let loop_info = if data_offset >= 40 { 
+                    let alignment_samples = inner.read_u16()?;
+                    let enabled_short = inner.read_u16()?;
+                    let enabled_int = inner.read_u32()?;
+                    let begin_sample = inner.read_u32()?;
+                    let begin_byte = inner.read_u32()?;
+                    let end_sample = inner.read_u32()?;
+                    let end_byte = inner.read_u32()?;
+                    Some(
+                        AdxVersion3LoopInfo {
+                            alignment_samples: alignment_samples,
+                            enabled_short: enabled_short,
+                            enabled_int: enabled_int,
+                            begin_sample: begin_sample,
+                            begin_byte: begin_byte,
+                            end_sample: end_sample,
+                            end_byte: end_byte,
+                        }
+                    )
                 }
+                else {
+                    None
+                };
+                AdxVersion::Version3(loop_info)
             }
             0x04 => AdxVersion::Version4,
             0x05 => AdxVersion::Version5,
