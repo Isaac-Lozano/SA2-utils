@@ -1,7 +1,7 @@
 use std::cmp;
 use std::f64;
 use std::i16;
-use std::io::{self, Read};
+use std::io::{self, Seek, Read};
 use std::iter;
 
 use adx_header::AdxHeader;
@@ -9,25 +9,30 @@ use adx_reader::AdxReader;
 use decoder::Decoder;
 use ::Sample;
 
-pub(crate) struct StandardDecoder {
+pub struct StandardDecoder<S> {
+    inner: S,
     header: AdxHeader,
     samples: Vec<Sample>,
-    sample_idx: usize,
+    sample_vec_idx: usize,
     prev_sample: Sample,
     prev_prev_sample: Sample,
     coeff1: i32,
     coeff2: i32,
 }
 
-impl StandardDecoder {
-    pub(crate) fn from_header(header: AdxHeader) -> StandardDecoder {
+impl<S> StandardDecoder<S>
+    where S: Read + Seek
+{
+    pub fn from_header(header: AdxHeader, inner: S) -> StandardDecoder<S> {
         let (coeff1, coeff2) = gen_coeffs(&header);
         let prev_sample = iter::repeat(0).take(header.channel_count as usize).collect();
         let prev_prev_sample = iter::repeat(0).take(header.channel_count as usize).collect();
+
         StandardDecoder {
+            inner: inner,
             header: header,
             samples: Vec::new(),
-            sample_idx: 0,
+            sample_vec_idx: 0,
             prev_sample: prev_sample,
             prev_prev_sample: prev_prev_sample,
             coeff1: coeff1,
@@ -35,8 +40,8 @@ impl StandardDecoder {
         }
     }
 
-    fn read_frame(&mut self, read: &mut Read) -> io::Result<Option<Vec<Sample>>> {
-        let mut bitreader = BitReader::new(read);
+    fn read_frame(&mut self) -> io::Result<Option<Vec<Sample>>> {
+        let mut bitreader = BitReader::new(&mut self.inner);
         let samples_per_block = ((self.header.block_size as u32 - 2) * 8) / self.header.sample_bitdepth as u32;
         let mut samples: Vec<Sample> = iter::repeat(iter::repeat(0).take(self.header.channel_count as usize).collect())
             .take(samples_per_block as usize).collect();
@@ -85,7 +90,9 @@ impl StandardDecoder {
     }
 }
 
-impl Decoder for StandardDecoder {
+impl<S> Decoder for StandardDecoder<S>
+    where S: Seek + Read
+{
     fn channels(&self) -> u32 {
         self.header.channel_count as u32
     }
@@ -94,16 +101,17 @@ impl Decoder for StandardDecoder {
         self.header.sample_rate as u32
     }
 
-    fn next_sample(&mut self, inner: &mut Read) -> Option<Sample> {
-        if self.sample_idx == self.samples.len() {
-            self.samples = match self.read_frame(inner).unwrap_or(None) {
+    fn next_sample(&mut self) -> Option<Sample>
+    {
+        if self.sample_vec_idx == self.samples.len() {
+            self.samples = match self.read_frame().unwrap_or(None) {
                 Some(v) => v,
                 None => return None,
             };
-            self.sample_idx = 0;
+            self.sample_vec_idx = 0;
         }
-        let result = self.samples[self.sample_idx].clone();
-        self.sample_idx += 1;
+        let result = self.samples[self.sample_vec_idx].clone();
+        self.sample_vec_idx += 1;
         Some(result)
     }
 }

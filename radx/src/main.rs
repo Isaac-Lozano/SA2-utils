@@ -6,14 +6,12 @@ use std::fs::File;
 
 use byteorder::{BigEndian, WriteBytesExt};
 
-use radx::AdxDecoder;
-
 fn main() {
     let mut args = env::args().skip(1);
     let filename = args.next().unwrap();
 
     let f = File::open(filename).unwrap();
-    let adx = AdxDecoder::new(f).unwrap();
+    let adx = radx::from_reader(f).unwrap();
 
     println!("channels: {}", adx.channels());
     println!("Sample rate: {}", adx.sample_rate());
