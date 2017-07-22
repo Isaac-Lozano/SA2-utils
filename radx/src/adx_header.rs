@@ -6,13 +6,13 @@ const ADX_MAGIC: u16 = 0x8000;
 
 #[derive(Clone,Copy,Debug)]
 pub struct AdxVersion3LoopInfo {
-    alignment_samples: u16,
-    enabled_short: u16,
-    enabled_int: u32,
-    begin_sample: u32,
-    begin_byte: u32,
-    end_sample: u32,
-    end_byte: u32,
+    pub alignment_samples: u16,
+    pub enabled_short: u16,
+    pub enabled_int: u32,
+    pub begin_sample: u32,
+    pub begin_byte: u32,
+    pub end_sample: u32,
+    pub end_byte: u32,
 }
 
 #[derive(Clone,Debug)]
@@ -35,6 +35,7 @@ pub enum AdxEncoding {
 
 #[derive(Clone,Debug)]
 pub struct AdxHeader {
+    pub data_offset: u16,
     pub encoding: AdxEncoding,
     pub block_size: u8,
     pub sample_bitdepth: u8,
@@ -113,6 +114,7 @@ impl AdxHeader {
         }
 
         Ok(AdxHeader {
+            data_offset: data_offset,
             encoding: encoding,
             block_size: block_size,
             sample_bitdepth: sample_bitdepth,

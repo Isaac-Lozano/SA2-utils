@@ -1,13 +1,20 @@
 use std::cmp;
 use std::f64;
 use std::i16;
-use std::io::{self, Seek, Read};
+use std::io::{self, Seek, Read, SeekFrom};
 use std::iter;
 
-use adx_header::AdxHeader;
+use adx_header::{AdxHeader, AdxVersion};
 use adx_reader::AdxReader;
 use decoder::Decoder;
 use ::Sample;
+
+struct LoopInfo {
+    begin_byte: usize,
+    begin_sample: usize,
+    end_sample: usize,
+    samples_read: usize,
+}
 
 pub struct StandardDecoder<S> {
     inner: S,
@@ -18,15 +25,35 @@ pub struct StandardDecoder<S> {
     prev_prev_sample: Sample,
     coeff1: i32,
     coeff2: i32,
+    loop_info: Option<LoopInfo>,
 }
 
 impl<S> StandardDecoder<S>
     where S: Read + Seek
 {
-    pub fn from_header(header: AdxHeader, inner: S) -> StandardDecoder<S> {
+    pub fn from_header(header: AdxHeader, inner: S, looping: bool) -> StandardDecoder<S> {
         let (coeff1, coeff2) = gen_coeffs(&header);
         let prev_sample = iter::repeat(0).take(header.channel_count as usize).collect();
         let prev_prev_sample = iter::repeat(0).take(header.channel_count as usize).collect();
+
+        let loop_info = if looping {
+            match header.version {
+                AdxVersion::Version3(loop_opt) => {
+                    loop_opt.map(|loop_info|
+                        LoopInfo {
+                            begin_byte: loop_info.begin_byte as usize,
+                            begin_sample: loop_info.begin_sample as usize,
+                            end_sample: loop_info.end_sample as usize,
+                            samples_read: 0,
+                        }
+                    )
+                }
+                _ => None
+            }
+        }
+        else {
+            None
+        };
 
         StandardDecoder {
             inner: inner,
@@ -37,6 +64,7 @@ impl<S> StandardDecoder<S>
             prev_prev_sample: prev_prev_sample,
             coeff1: coeff1,
             coeff2: coeff2,
+            loop_info: loop_info,
         }
     }
 
@@ -103,6 +131,15 @@ impl<S> Decoder for StandardDecoder<S>
 
     fn next_sample(&mut self) -> Option<Sample>
     {
+        if let Some(ref mut loop_info) = self.loop_info {
+            if loop_info.samples_read == loop_info.end_sample {
+                self.inner.seek(SeekFrom::Start(loop_info.begin_byte as u64)).unwrap();
+                // Signal a reload of samples.
+                self.sample_vec_idx = self.samples.len();
+                loop_info.samples_read = loop_info.begin_sample;
+            }
+            loop_info.samples_read += 1;
+        }
         if self.sample_vec_idx == self.samples.len() {
             self.samples = match self.read_frame().unwrap_or(None) {
                 Some(v) => v,
