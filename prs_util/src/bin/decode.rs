@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Write;
 use std::env;
 
-use prs_util::Decoder;
+use prs_util::decoder::Decoder;
 
 fn main() {
     let mut args = env::args().skip(1);
