@@ -1,7 +1,24 @@
+extern crate encoding;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+
 use std::iter::Peekable;
 use std::slice;
 
-#[derive(Clone,Debug)]
+use encoding::{Encoding, EncoderTrap, DecoderTrap};
+use encoding::codec::japanese::Windows31JEncoding;
+
+#[derive(Clone,Copy,Debug,PartialEq,Eq,Serialize,Deserialize)]
+pub enum Language {
+    Japanese,
+    English,
+    French,
+    Spanish,
+    German,
+}
+
+#[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
 pub enum TextElement {
     Sound(u32),
     Wait(u32),
@@ -18,9 +35,10 @@ impl TextElement {
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
 pub struct Sa2Text {
-    elements: Vec<TextElement>,
+    pub language: Language,
+    pub elements: Vec<TextElement>,
 }
 
 impl Sa2Text {
@@ -66,7 +84,16 @@ impl Sa2Text {
                     }
                     state = Some(State::Text);
 
-                    bytes.extend_from_slice(&string.clone().into_bytes());
+                    // XXX: Do some proper checks on codepoints and actual errors.
+                    match self.language {
+                        Language::Japanese => {
+                            let encoding = Windows31JEncoding;
+                            bytes.extend_from_slice(&encoding.encode(&string, EncoderTrap::Strict).unwrap());
+                        }
+                        _ => {
+                            bytes.extend(string.chars().map(|c| c as u32 as u8));
+                        }
+                    }
                 }
                 _ => unreachable!(),
             }
@@ -74,7 +101,7 @@ impl Sa2Text {
         bytes
     }
 
-    pub fn from_slice(slice: &[u8]) -> Sa2Text {
+    pub fn from_slice(slice: &[u8], language: Language) -> Sa2Text {
         let mut elements = Vec::new();
         let mut peeker = slice.iter().peekable();
 
@@ -85,10 +112,10 @@ impl Sa2Text {
                     elements.append(&mut meta_data);
                 }
                 Some(&0x07) => {
-                    let text = TextElement::Text(Sa2Text::read_text(&mut peeker));
+                    let text = TextElement::Text(Sa2Text::read_text(&mut peeker, language));
                     elements.push(text);
                 }
-                None => return Sa2Text { elements: elements },
+                None => return Sa2Text { elements: elements, language: language},
                 _ => panic!("Bad command byte."),
             }
         }
@@ -134,11 +161,24 @@ impl Sa2Text {
         }
     }
 
-    fn read_text(peeker: &mut Peekable<slice::Iter<u8>>) -> String {
+    fn read_text(peeker: &mut Peekable<slice::Iter<u8>>, language: Language) -> String {
         let mut str_data = Vec::new();
         loop {
             match peeker.peek() {
-                Some(&&0x0c) | None => return String::from_utf8(str_data).unwrap(),
+                Some(&&0x0c) | None => {
+                    match language {
+                        // Japanese uses SHIFT JIS encoding
+                        Language::Japanese => {
+                            let encoding = Windows31JEncoding;
+                            return encoding.decode(&str_data, DecoderTrap::Strict).unwrap();
+                        }
+                        // Everything else uses Latin1
+                        _ => {
+                            // Fancy stuff because Latin1 and UTF-8 codepoints match up
+                            return str_data.into_iter().map(|c| c as char).collect();
+                        }
+                    }
+                }
                 Some(_) => str_data.push(*peeker.next().unwrap()),
             }
         }

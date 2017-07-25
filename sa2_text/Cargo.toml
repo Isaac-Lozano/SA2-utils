@@ -5,3 +5,7 @@ authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
 
 [dependencies]
 strable = {path = "../strable"}
+encoding = "0.2.33"
+serde = "1.0"
+serde_derive = "1.0"
+edit-distance = "2.0.0"
