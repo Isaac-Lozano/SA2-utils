@@ -6,7 +6,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
 
 #[derive(Clone,Debug)]
 pub struct Strable {
-    data_table: Vec<Vec<u8>>,
+    pub data_table: Vec<Vec<u8>>,
 }
 
 impl Strable {
@@ -41,7 +41,7 @@ impl Strable {
         })
     }
 
-    pub fn write_data<W>(&self, writeable: &mut W) -> io::Result<()>
+    pub fn to_writer<W>(&self, mut writer: W) -> io::Result<()>
         where W: Write
     {
         // table size = (#entries + 1) * sizeof(u32);
@@ -49,49 +49,20 @@ impl Strable {
         let mut data_ptr = (self.data_table.len() + 1) * 4;
 
         for data in self.data_table.iter() {
-            writeable.write_u32::<BigEndian>(data_ptr as u32)?;
+            writer.write_u32::<BigEndian>(data_ptr as u32)?;
             // extra 1 is for null terminator
             data_ptr += data.len() + 1;
         }
 
         // table terminator
-        writeable.write_u32::<BigEndian>(0xffffffff)?;
+        writer.write_u32::<BigEndian>(0xffffffff)?;
 
         for data in self.data_table.iter() {
-            writeable.write_all(data)?;
-            writeable.write_u8(0)?;
+            writer.write_all(data)?;
+            writer.write_u8(0)?;
         }
 
         Ok(())
-    }
-
-    pub fn into_vec(self) -> Vec<Vec<u8>> {
-        self.data_table
-    }
-
-    pub fn from_vec(data_table: Vec<Vec<u8>>) -> Strable {
-        Strable {
-            data_table: data_table,
-        }
-    }
-
-    pub fn strings<'a>(&'a mut self) -> StrableIterator<'a> {
-        StrableIterator {
-            data_iter: self.data_table.iter(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct StrableIterator<'a> {
-    data_iter: std::slice::Iter<'a, Vec<u8>>,
-}
-
-impl<'a> Iterator for StrableIterator<'a> {
-    type Item = &'a Vec<u8>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data_iter.next()
     }
 }
 
