@@ -61,7 +61,7 @@ impl<'a> Encoder<'a> {
         while search_idx < idx {
             let mut match_len = 0;
             while idx + match_len < self.data.len() &&
-                match_len < 0x101 && 
+                match_len < 0x100 && 
                 self.data[search_idx + match_len] == self.data[idx + match_len]
             {
                 match_len += 1;
