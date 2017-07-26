@@ -2,12 +2,15 @@ extern crate encoding;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate strable;
 
+use std::io::{self, Seek, Read, Write};
 use std::iter::Peekable;
 use std::slice;
 
 use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::codec::japanese::Windows31JEncoding;
+use strable::Strable;
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq,Serialize,Deserialize)]
 pub enum Language {
@@ -36,13 +39,10 @@ impl TextElement {
 }
 
 #[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
-pub struct Sa2Text {
-    pub language: Language,
-    pub elements: Vec<TextElement>,
-}
+pub struct Sa2Text(Vec<TextElement>);
 
 impl Sa2Text {
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self, language: Language) -> Vec<u8> {
         enum State {
             Text,
             Meta,
@@ -50,7 +50,7 @@ impl Sa2Text {
         let mut state = None;
         let mut bytes = Vec::new();
 
-        for element in self.elements.iter() {
+        for element in self.0.iter() {
             match element {
                 e if element.is_meta() => {
                     match state {
@@ -85,7 +85,7 @@ impl Sa2Text {
                     state = Some(State::Text);
 
                     // XXX: Do some proper checks on codepoints and actual errors.
-                    match self.language {
+                    match language {
                         Language::Japanese => {
                             let encoding = Windows31JEncoding;
                             bytes.extend_from_slice(&encoding.encode(&string, EncoderTrap::Strict).unwrap());
@@ -101,7 +101,7 @@ impl Sa2Text {
         bytes
     }
 
-    pub fn from_slice(slice: &[u8], language: Language) -> Sa2Text {
+    fn from_slice(slice: &[u8], language: Language) -> Sa2Text {
         let mut elements = Vec::new();
         let mut peeker = slice.iter().peekable();
 
@@ -115,7 +115,7 @@ impl Sa2Text {
                     let text = TextElement::Text(Sa2Text::read_text(&mut peeker, language));
                     elements.push(text);
                 }
-                None => return Sa2Text { elements: elements, language: language},
+                None => return Sa2Text(elements),
                 _ => panic!("Bad command byte."),
             }
         }
@@ -182,6 +182,46 @@ impl Sa2Text {
                 Some(_) => str_data.push(*peeker.next().unwrap()),
             }
         }
+    }
+}
+
+#[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
+pub struct Sa2TextTable {
+    pub language: Language,
+    pub texts: Vec<Sa2Text>,
+}
+
+impl Sa2TextTable {
+
+    pub fn from_seek<S>(mut seekable: S, language: Language) -> io::Result<Sa2TextTable>
+        where S: Read + Seek
+    {
+        let string_table = Strable::from_seek(&mut seekable)?;
+
+        let mut texts = Vec::new();
+        for byte_string in string_table.data_table {
+            let text = Sa2Text::from_slice(&byte_string, language);
+            texts.push(text);
+        }
+
+        Ok(
+            Sa2TextTable {
+                language: language,
+                texts: texts,
+            }
+        )
+    }
+
+    pub fn to_writer<W>(&self, writer: W) -> io::Result<()>
+        where W: Write
+    {
+        let data_table = self.texts.iter()
+            .map(|t| t.to_bytes(self.language))
+            .collect();
+        let string_table = Strable {
+            data_table: data_table,
+        };
+        string_table.to_writer(writer)
     }
 }
 

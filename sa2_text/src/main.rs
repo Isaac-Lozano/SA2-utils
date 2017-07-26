@@ -4,8 +4,7 @@ extern crate strable;
 use std::env;
 use std::fs::File;
 
-use sa2_text::{Sa2Text, Language};
-use strable::Strable;
+use sa2_text::{Sa2TextTable, Language};
 
 fn main() {
     let mut args = env::args().skip(1);
@@ -22,10 +21,6 @@ fn main() {
     };
 
     let mut f = File::open(filename).unwrap();
-    let mut strable = Strable::from_seek(&mut f).unwrap();
-
-    for (idx, data) in strable.strings().enumerate() {
-        let text = Sa2Text::from_slice(&data, decode_language);
-        println!("idx {}: {:?}", idx, text);
-    }
+    let mut text_table = Sa2TextTable::from_seek(&mut f, decode_language).unwrap();
+    println!("{:?}", text_table);
 }
