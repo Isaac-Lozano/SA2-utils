@@ -4,4 +4,6 @@ version = "0.1.0"
 authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
 
 [dependencies]
-strable = {path = "../strable"}
+sa2_text = {path = "../sa2_text"}
+prs_util = {path = "../prs_util"}
+serde_json = "1.0"
