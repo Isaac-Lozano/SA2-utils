@@ -24,4 +24,3 @@ impl<R> AdxReader for R
         ReadBytesExt::read_u32::<BigEndian>(self)
     }
 }
-

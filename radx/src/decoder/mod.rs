@@ -1,4 +1,4 @@
-mod standard_decoder;
+pub mod standard_decoder;
 
 pub(crate) use self::standard_decoder::StandardDecoder;
 

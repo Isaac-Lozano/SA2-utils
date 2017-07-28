@@ -12,7 +12,7 @@ fn main() {
     let filename = args.next().unwrap();
 
     let f = File::open(filename).unwrap();
-    let mut adx = radx::from_reader(f).unwrap();
+    let mut adx = radx::from_reader(f, false).unwrap();
 
     println!("channels: {}", adx.channels());
     println!("Sample rate: {}", adx.sample_rate());

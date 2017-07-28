@@ -1,8 +1,11 @@
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read, Write, Seek, SeekFrom};
 
 use adx_reader::AdxReader;
+use adx_writer::AdxWriter;
 
 const ADX_MAGIC: u16 = 0x8000;
+// TODO: Make function to pub this
+pub(crate) const ADX_HEADER_LEN: usize = 0x0024;
 
 #[derive(Clone,Copy,Debug)]
 pub struct AdxVersion3LoopInfo {
@@ -15,7 +18,7 @@ pub struct AdxVersion3LoopInfo {
     pub end_byte: u32,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Copy,Debug)]
 pub enum AdxVersion {
     Version3(Option<AdxVersion3LoopInfo>),
     Version4,
@@ -23,6 +26,17 @@ pub enum AdxVersion {
     Version5,
     /// Seen in SA2B voice afs
     Version6,
+}
+
+impl From<AdxVersion> for u8 {
+    fn from(val: AdxVersion) -> u8 {
+        match val {
+            AdxVersion::Version3(_) => 0x03,
+            AdxVersion::Version4 => 0x04,
+            AdxVersion::Version5 => 0x05,
+            AdxVersion::Version6 => 0x06,
+        }
+    }
 }
 
 #[derive(Clone,Copy,Debug)]
@@ -33,9 +47,32 @@ pub enum AdxEncoding {
     Ahx,
 }
 
+impl AdxEncoding {
+    fn from_u8(val: u8) -> AdxEncoding {
+        match val {
+            0x02 => AdxEncoding::Preset,
+            0x03 => AdxEncoding::Standard,
+            0x04 => AdxEncoding::Exponential,
+            0x10 | 0x11 => AdxEncoding::Ahx,
+            _ => panic!("Bad encoding"),
+        }
+    }
+}
+
+impl From<AdxEncoding> for u8 {
+    fn from(val: AdxEncoding) -> u8 {
+        match val {
+            AdxEncoding::Preset => 0x02,
+            AdxEncoding::Standard => 0x03,
+            AdxEncoding::Exponential => 0x04,
+            AdxEncoding::Ahx => 0x10,
+        }
+    }
+}
+
 #[derive(Clone,Debug)]
 pub struct AdxHeader {
-    pub data_offset: u16,
+//    pub data_offset: u16,
     pub encoding: AdxEncoding,
     pub block_size: u8,
     pub sample_bitdepth: u8,
@@ -57,13 +94,7 @@ impl AdxHeader {
         }
 
         let data_offset = inner.read_u16()?;
-        let encoding = match inner.read_u8()? {
-            0x02 => AdxEncoding::Preset,
-            0x03 => AdxEncoding::Standard,
-            0x04 => AdxEncoding::Exponential,
-            0x10 | 0x11 => AdxEncoding::Ahx,
-            _ => panic!("Bad encoding"),
-        };
+        let encoding = AdxEncoding::from_u8(inner.read_u8()?);
         let block_size = inner.read_u8()?;
         let sample_bitdepth = inner.read_u8()?;
         let channel_count = inner.read_u8()?;
@@ -109,12 +140,12 @@ impl AdxHeader {
 
         let mut copyright_buffer = [0u8; 6];
         inner.read_exact(&mut copyright_buffer)?;
-        if copyright_buffer != [0x28, 0x63, 0x29, 0x43, 0x52, 0x49] {
+        if &copyright_buffer != b"(c)CRI" {
             panic!("Copyright magic wrong");
         }
 
         Ok(AdxHeader {
-            data_offset: data_offset,
+//            data_offset: data_offset,
             encoding: encoding,
             block_size: block_size,
             sample_bitdepth: sample_bitdepth,
@@ -125,5 +156,43 @@ impl AdxHeader {
             version: version,
             flags: flags,
         })
+    }
+
+    pub(crate) fn to_writer<W>(&self, mut writer: W) -> io::Result<()>
+        where W: Write
+    {
+        writer.write_u16(ADX_MAGIC)?;
+        // Leave room for header stuff.
+        writer.write_u16(ADX_HEADER_LEN as u16 - 0x04)?;
+        writer.write_u8(self.encoding.into())?;
+        writer.write_u8(self.block_size)?;
+        writer.write_u8(self.sample_bitdepth)?;
+        writer.write_u8(self.channel_count)?;
+        writer.write_u32(self.sample_rate)?;
+        writer.write_u32(self.total_samples)?;
+        writer.write_u16(self.highpass_frequency)?;
+        writer.write_u8(self.version.into())?;
+        writer.write_u8(self.flags)?;
+        match self.version {
+            AdxVersion::Version3(Some(ref loop_info)) => {
+                writer.write_u16(loop_info.alignment_samples)?;
+                writer.write_u16(loop_info.enabled_short)?;
+                writer.write_u32(loop_info.enabled_int)?;
+                writer.write_u32(loop_info.begin_sample)?;
+                writer.write_u32(loop_info.begin_byte)?;
+                writer.write_u32(loop_info.end_sample)?;
+                writer.write_u32(loop_info.end_byte)?;
+                for _ in 0..(ADX_HEADER_LEN - 0x2c - 0x06) {
+                    writer.write_u8(0)?;
+                }
+            }
+            _ => {
+                for _ in 0..(ADX_HEADER_LEN - 0x14 - 0x06) {
+                    writer.write_u8(0)?;
+                }
+            }
+        }
+        writer.write_all(b"(c)CRI")?;
+        Ok(())
     }
 }
