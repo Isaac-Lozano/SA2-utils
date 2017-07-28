@@ -5,7 +5,7 @@ use adx_writer::AdxWriter;
 
 const ADX_MAGIC: u16 = 0x8000;
 // TODO: Make function to pub this
-pub(crate) const ADX_HEADER_LEN: usize = 0x0024;
+pub(crate) const ADX_HEADER_LEN: usize = 0x0032;
 
 #[derive(Clone,Copy,Debug)]
 pub struct AdxVersion3LoopInfo {

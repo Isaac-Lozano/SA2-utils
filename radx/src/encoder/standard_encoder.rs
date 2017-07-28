@@ -1,5 +1,6 @@
 use std::io::{self, Write, Seek, SeekFrom};
 use std::iter;
+use std::i16;
 
 use ::{Sample, AdxSpec, gen_coeffs};
 use adx_header::{AdxHeader, AdxEncoding, AdxVersion, AdxVersion3LoopInfo, ADX_HEADER_LEN};
@@ -8,21 +9,35 @@ use adx_writer::AdxWriter;
 const HIGHPASS_FREQ: u32 = 0x01F4;
 
 #[derive(Clone,Copy,Debug)]
+struct Prev<T> {
+    first: T,
+    second: T,
+}
+
+#[derive(Clone,Copy,Debug)]
 struct Block {
-    prev: i16,
-    prev_prev: i16,
-    scale: u16,
-    deltas: [i32; 32],
+    prev: Prev<i16>,
+    orig_prev: Prev<i16>,
+    min: i32,
+    max: i32,
+    samples: [i16; 32],
     size: usize,
 }
 
 impl Block {
     fn new() -> Block {
         Block {
-            prev: 0,
-            prev_prev: 0,
-            scale: 0,
-            deltas: [0; 32],
+            prev: Prev {
+                first: 0,
+                second: 0,
+            },
+            orig_prev: Prev {
+                first: 0,
+                second: 0,
+            },
+            min: 0,
+            max: 0,
+            samples: [0; 32],
             size: 0,
         }
     }
@@ -30,78 +45,107 @@ impl Block {
     fn from_prev(other: &Block) -> Block {
         Block {
             prev: other.prev,
-            prev_prev: other.prev_prev,
-            scale: 0,
-            deltas: [0; 32],
+            orig_prev: other.prev,
+            min: 0,
+            max: 0,
+            samples: [0; 32],
             size: 0,
         }
     }
 
     fn push(&mut self, sample: i16, coeffs: (i32, i32)) {
-        let prediction_fixed_point = coeffs.0 * self.prev as i32 +
-                                     coeffs.1 * self.prev_prev as i32;
-        let prediction = prediction_fixed_point >> 12;
-        let delta = sample as i32 - prediction;
-        self.deltas[self.size] = delta;
+        let delta = (((sample as i32) << 12) - coeffs.0 * self.prev.first as i32 - coeffs.1 * self.prev.second as i32) >> 12;
+        if delta < self.min {
+            self.min = delta;
+        }
+        else if delta > self.max {
+            self.max = delta;
+        }
+
+        self.samples[self.size] = sample;
         self.size += 1;
 
-//        if delta != 0 {
-//            if self.scale == 0 {
-//                self.scale = 1;
-//            }
-//            while delta / (self.scale as i32) > 0x07 || delta / (self.scale as i32) < -0x08 {
-//                self.scale += 1;
-//            }
-//        }
-
-        self.prev_prev = self.prev;
-        self.prev = sample;
+        self.prev.second = self.prev.first;
+        self.prev.first = sample;
     }
 
     fn is_full(&self) -> bool {
         self.size == 32
     }
 
-    fn to_writer<W>(&self, mut writer: W) -> io::Result<()>
+    fn to_writer<W>(&mut self, mut writer: W, coeffs: (i32, i32)) -> io::Result<()>
         where W: Write
     {
-        let mut min = 0;
-        let mut max = 0;
-        for d in self.deltas.iter() {
-            if *d < min {
-                min = *d;
-            }
-            if *d > max {
-                max = *d;
-            }
-        }
-
-        if min == 0 && max == 0 {
+        if self.min == 0 && self.max == 0 {
             for _ in 0..18 {
                 writer.write_u8(0)?;
             }
             return Ok(());
         }
 
-        let mut scale = if max / 7 > min / -8 {
-            max / 7
+        let mut scale = if self.max / 7 > self.min / -8 {
+            self.max / 7
         }
         else {
-            min / -8
+            self.min / -8
         };
 
         if scale == 0 {
             scale = 1;
         }
 
+        self.prev = self.orig_prev;
+
         writer.write_u16(scale as u16)?;
-        for byte_idx in 0..self.deltas.len() / 2 {
-            let upper_nibble = (self.deltas[byte_idx * 2] / scale as i32) as u8;
-            let lower_nibble = (self.deltas[byte_idx * 2 + 1] / scale as i32) as u8 & 0x0F;
-            let byte = upper_nibble << 4 | lower_nibble;
+        for byte_idx in 0..self.samples.len() / 2 {
+            let sample1 = self.samples[byte_idx * 2];
+            let sample2 = self.samples[byte_idx * 2 + 1];
+            let upper_nibble = self.get_nibble(sample1, scale, coeffs);
+            let lower_nibble = self.get_nibble(sample2, scale, coeffs);
+            let byte = (upper_nibble << 4) | (lower_nibble & 0xF);
             writer.write_u8(byte)?;
         }
         Ok(())
+    }
+
+    fn get_nibble(&mut self, sample: i16, scale: i32, coeffs: (i32, i32)) -> u8 {
+        let delta = (((sample as i32) << 12) - coeffs.0 * self.prev.first as i32 - coeffs.1 * self.prev.second as i32) >> 12;
+
+        // Rounded div
+        let unclipped = if delta > 0 {
+            (delta + (scale >> 1)) / scale
+        }
+        else {
+            (delta - (scale >> 1)) / scale
+        };
+
+        // Clip
+        let nibble = if unclipped >= 7 {
+            7
+        }
+        else if unclipped <= -8 {
+            -8
+        }
+        else {
+            unclipped
+        };
+
+        let simulated_unclipped_sample = (((nibble) << 12) * scale + coeffs.0 * self.prev.first as i32 + coeffs.1 * self.prev.second as i32) >> 12;
+        // Clamp sample
+        let simulated_sample = if simulated_unclipped_sample >= i16::MAX as i32 {
+            i16::MAX
+        }
+        else if simulated_unclipped_sample <= i16::MIN as i32 {
+            i16::MIN
+        }
+        else {
+            simulated_unclipped_sample as i16
+        };
+
+        self.prev.second = self.prev.first;
+        self.prev.first = simulated_sample;
+
+        nibble as u8
     }
 }
 
@@ -139,11 +183,11 @@ impl Frame {
         self.blocks[0].is_full()
     }
 
-    fn to_writer<W>(&self, mut writer: W) -> io::Result<()>
+    fn to_writer<W>(&mut self, mut writer: W, coeffs: (i32, i32)) -> io::Result<()>
         where W: Write
     {
-        for block in self.blocks.iter() {
-            block.to_writer(&mut writer)?;
+        for block in self.blocks.iter_mut() {
+            block.to_writer(&mut writer, coeffs)?;
         }
         Ok(())
     }
@@ -180,7 +224,7 @@ impl<W> StandardEncoder<W>
         for sample in samples {
             self.current_frame.push(sample, self.coeffs);
             if self.current_frame.is_full() {
-                self.current_frame.to_writer(&mut self.inner)?;
+                self.current_frame.to_writer(&mut self.inner, self.coeffs)?;
                 let new_frame = Frame::from_prev(&self.current_frame);
                 self.current_frame = new_frame;
             }
@@ -195,6 +239,19 @@ impl<W> StandardEncoder<W>
             self.inner.write_u8(0x00)?;
         }
         self.inner.seek(SeekFrom::Start(0))?;
+
+        let loop_info = self.spec.loop_info.map(|li| {
+            AdxVersion3LoopInfo {
+                alignment_samples: 0,
+                enabled_short: 1,
+                enabled_int: 1,
+                begin_sample: li.start_sample,
+                begin_byte: 0,
+                end_sample: li.end_sample,
+                end_byte: 0,
+            }
+        });
+
         let header = AdxHeader {
             encoding: AdxEncoding::Standard,
             block_size: 18,
@@ -203,7 +260,7 @@ impl<W> StandardEncoder<W>
             sample_rate: self.spec.sample_rate,
             total_samples: self.samples_encoded as u32,
             highpass_frequency: HIGHPASS_FREQ as u16,
-            version: AdxVersion::Version3(None),
+            version: AdxVersion::Version3(loop_info),
             flags: 0,
         };
         header.to_writer(self.inner)?;
