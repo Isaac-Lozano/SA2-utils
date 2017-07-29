@@ -4,10 +4,11 @@ extern crate radx;
 use std::env;
 use std::io::{self, Read};
 use std::fs::File;
+use std::str::FromStr;
 
 use byteorder::{BigEndian, ReadBytesExt};
 
-use radx::AdxSpec;
+use radx::{AdxSpec, LoopInfo};
 use radx::encoder::standard_encoder::StandardEncoder;
 
 fn main() {
@@ -17,11 +18,28 @@ fn main() {
     let mut input = File::open(filename).unwrap();
     let output = File::create("output.adx").unwrap();
 
-    let spec = AdxSpec {
-        channels: 2,
-        sample_rate: 44100,
-        loop_info: None,
+    let spec = if let Some((start_sample_str, end_sample_str)) = args.next().and_then(|start| args.next().map(|end| (start, end))) {
+        let start_sample = u32::from_str(&start_sample_str).unwrap();
+        let end_sample = u32::from_str(&end_sample_str).unwrap();
+        AdxSpec {
+            channels: 2,
+            sample_rate: 44100,
+            loop_info: Some(
+                LoopInfo {
+                    start_sample: start_sample,
+                    end_sample: end_sample,
+                }
+            )
+        }
+    }
+    else {
+        AdxSpec {
+            channels: 2,
+            sample_rate: 44100,
+            loop_info: None,
+        }
     };
+
     let mut encoder = StandardEncoder::new(output, spec).unwrap();
     println!("{:#?}", encoder);
 

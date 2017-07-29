@@ -2,7 +2,7 @@ use std::io::{self, Write, Seek, SeekFrom};
 use std::iter;
 use std::i16;
 
-use ::{Sample, AdxSpec, gen_coeffs};
+use {Sample, AdxSpec, gen_coeffs};
 use adx_header::{AdxHeader, AdxEncoding, AdxVersion, AdxVersion3LoopInfo, ADX_HEADER_LEN};
 use adx_writer::AdxWriter;
 
@@ -54,11 +54,11 @@ impl Block {
     }
 
     fn push(&mut self, sample: i16, coeffs: (i32, i32)) {
-        let delta = (((sample as i32) << 12) - coeffs.0 * self.prev.first as i32 - coeffs.1 * self.prev.second as i32) >> 12;
+        let delta = (((sample as i32) << 12) - coeffs.0 * self.prev.first as i32 -
+                     coeffs.1 * self.prev.second as i32) >> 12;
         if delta < self.min {
             self.min = delta;
-        }
-        else if delta > self.max {
+        } else if delta > self.max {
             self.max = delta;
         }
 
@@ -85,8 +85,7 @@ impl Block {
 
         let mut scale = if self.max / 7 > self.min / -8 {
             self.max / 7
-        }
-        else {
+        } else {
             self.min / -8
         };
 
@@ -109,36 +108,34 @@ impl Block {
     }
 
     fn get_nibble(&mut self, sample: i16, scale: i32, coeffs: (i32, i32)) -> u8 {
-        let delta = (((sample as i32) << 12) - coeffs.0 * self.prev.first as i32 - coeffs.1 * self.prev.second as i32) >> 12;
+        let delta = (((sample as i32) << 12) - coeffs.0 * self.prev.first as i32 -
+                     coeffs.1 * self.prev.second as i32) >> 12;
 
         // Rounded div
         let unclipped = if delta > 0 {
             (delta + (scale >> 1)) / scale
-        }
-        else {
+        } else {
             (delta - (scale >> 1)) / scale
         };
 
         // Clip
         let nibble = if unclipped >= 7 {
             7
-        }
-        else if unclipped <= -8 {
+        } else if unclipped <= -8 {
             -8
-        }
-        else {
+        } else {
             unclipped
         };
 
-        let simulated_unclipped_sample = (((nibble) << 12) * scale + coeffs.0 * self.prev.first as i32 + coeffs.1 * self.prev.second as i32) >> 12;
+        let simulated_unclipped_sample =
+            (((nibble) << 12) * scale + coeffs.0 * self.prev.first as i32 +
+             coeffs.1 * self.prev.second as i32) >> 12;
         // Clamp sample
         let simulated_sample = if simulated_unclipped_sample >= i16::MAX as i32 {
             i16::MAX
-        }
-        else if simulated_unclipped_sample <= i16::MIN as i32 {
+        } else if simulated_unclipped_sample <= i16::MIN as i32 {
             i16::MIN
-        }
-        else {
+        } else {
             simulated_unclipped_sample as i16
         };
 
@@ -156,9 +153,7 @@ struct Frame {
 
 impl Frame {
     fn new(channels: usize) -> Frame {
-        Frame {
-            blocks: iter::repeat(Block::new()).take(channels).collect(),
-        }
+        Frame { blocks: iter::repeat(Block::new()).take(channels).collect() }
     }
 
     fn from_prev(other: &Frame) -> Frame {
@@ -168,9 +163,7 @@ impl Frame {
             blocks.push(Block::from_prev(block));
         }
 
-        Frame {
-            blocks: blocks,
-        }
+        Frame { blocks: blocks }
     }
 
     fn push(&mut self, sample: Sample, coeffs: (i32, i32)) {
@@ -197,6 +190,7 @@ impl Frame {
 pub struct StandardEncoder<W> {
     inner: W,
     spec: AdxSpec,
+    alignment_samples: usize,
     coeffs: (i32, i32),
     samples_encoded: usize,
     current_frame: Frame,
@@ -205,17 +199,30 @@ pub struct StandardEncoder<W> {
 impl<W> StandardEncoder<W>
     where W: Write + Seek
 {
-    pub fn new(mut writer: W, spec: AdxSpec) -> io::Result<StandardEncoder<W>> {
+    pub fn new(mut writer: W, mut spec: AdxSpec) -> io::Result<StandardEncoder<W>> {
         writer.seek(SeekFrom::Start(ADX_HEADER_LEN as u64))?;
-        Ok(
-            StandardEncoder {
-                inner: writer,
-                spec: spec,
-                coeffs: gen_coeffs(HIGHPASS_FREQ, spec.sample_rate),
-                samples_encoded: 0,
-                current_frame: Frame::new(spec.channels as usize),
-            }
-        )
+        let alignment_samples = spec.loop_info
+            .as_mut()
+            .map(|li| {
+                let alignment_samples = (32 - (li.start_sample % 32)) % 32;
+                li.start_sample += alignment_samples;
+                li.end_sample += alignment_samples;
+                alignment_samples as usize
+            })
+            .unwrap_or(0);
+        let mut encoder = StandardEncoder {
+            inner: writer,
+            spec: spec,
+            alignment_samples: alignment_samples,
+            coeffs: gen_coeffs(HIGHPASS_FREQ, spec.sample_rate),
+            samples_encoded: 0,
+            current_frame: Frame::new(spec.channels as usize),
+        };
+        encoder.encode_data(iter::repeat(iter::repeat(0)
+                    .take(spec.channels as usize)
+                    .collect::<Sample>())
+                .take(alignment_samples))?;
+        Ok(encoder)
     }
 
     pub fn encode_data<I>(&mut self, samples: I) -> io::Result<()>
@@ -242,13 +249,13 @@ impl<W> StandardEncoder<W>
 
         let loop_info = self.spec.loop_info.map(|li| {
             AdxVersion3LoopInfo {
-                alignment_samples: 0,
+                alignment_samples: self.alignment_samples as u16,
                 enabled_short: 1,
                 enabled_int: 1,
                 begin_sample: li.start_sample,
-                begin_byte: 0,
+                begin_byte: (li.start_sample / 8) * 9 + ADX_HEADER_LEN as u32,
                 end_sample: li.end_sample,
-                end_byte: 0,
+                end_byte: ((li.end_sample - 1) / 8 + 1) * 9 + ADX_HEADER_LEN as u32,
             }
         });
 
@@ -271,7 +278,7 @@ impl<W> StandardEncoder<W>
 #[cfg(test)]
 mod tests {
     use super::Block;
-    use ::gen_coeffs;
+    use gen_coeffs;
 
     #[test]
     fn test_block_write() {
