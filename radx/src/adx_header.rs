@@ -158,12 +158,12 @@ impl AdxHeader {
         })
     }
 
-    pub(crate) fn to_writer<W>(&self, mut writer: W) -> io::Result<()>
+    pub(crate) fn to_writer<W>(&self, mut writer: W, header_size: usize) -> io::Result<()>
         where W: Write
     {
         writer.write_u16(ADX_MAGIC)?;
         // Leave room for header stuff.
-        writer.write_u16(ADX_HEADER_LEN as u16 - 0x04)?;
+        writer.write_u16(header_size as u16 - 0x04)?;
         writer.write_u8(self.encoding.into())?;
         writer.write_u8(self.block_size)?;
         writer.write_u8(self.sample_bitdepth)?;
@@ -182,12 +182,12 @@ impl AdxHeader {
                 writer.write_u32(loop_info.begin_byte)?;
                 writer.write_u32(loop_info.end_sample)?;
                 writer.write_u32(loop_info.end_byte)?;
-                for _ in 0..(ADX_HEADER_LEN - 0x2c - 0x06) {
+                for _ in 0..(header_size - 0x2c - 0x06) {
                     writer.write_u8(0)?;
                 }
             }
             _ => {
-                for _ in 0..(ADX_HEADER_LEN - 0x14 - 0x06) {
+                for _ in 0..(header_size - 0x14 - 0x06) {
                     writer.write_u8(0)?;
                 }
             }

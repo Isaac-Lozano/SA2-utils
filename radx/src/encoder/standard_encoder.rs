@@ -190,6 +190,7 @@ impl Frame {
 pub struct StandardEncoder<W> {
     inner: W,
     spec: AdxSpec,
+	header_size: usize,
     alignment_samples: usize,
     coeffs: (i32, i32),
     samples_encoded: usize,
@@ -200,7 +201,6 @@ impl<W> StandardEncoder<W>
     where W: Write + Seek
 {
     pub fn new(mut writer: W, mut spec: AdxSpec) -> io::Result<StandardEncoder<W>> {
-        writer.seek(SeekFrom::Start(ADX_HEADER_LEN as u64))?;
         let alignment_samples = spec.loop_info
             .as_mut()
             .map(|li| {
@@ -210,9 +210,27 @@ impl<W> StandardEncoder<W>
                 alignment_samples as usize
             })
             .unwrap_or(0);
+		
+		let header_size = spec.loop_info
+			.map(|li| {
+				let bytes_till_loop_start = Self::sample_to_byte(li.start_sample, spec.channels);
+				let mut fs_blocks = bytes_till_loop_start / 0x800;
+				if bytes_till_loop_start % 0x800 > 0x800 - ADX_HEADER_LEN {
+					fs_blocks += 1;
+				}
+				fs_blocks += 1;
+				println!("{} {}", fs_blocks, bytes_till_loop_start);
+				fs_blocks * 0x800 - bytes_till_loop_start
+			})
+			.unwrap_or(ADX_HEADER_LEN);
+
+		println!("{}", header_size);
+        writer.seek(SeekFrom::Start(header_size as u64))?;
+			
         let mut encoder = StandardEncoder {
             inner: writer,
             spec: spec,
+			header_size: header_size,
             alignment_samples: alignment_samples,
             coeffs: gen_coeffs(HIGHPASS_FREQ, spec.sample_rate),
             samples_encoded: 0,
@@ -230,6 +248,7 @@ impl<W> StandardEncoder<W>
     {
         for sample in samples {
             self.current_frame.push(sample, self.coeffs);
+			self.samples_encoded += 1;
             if self.current_frame.is_full() {
                 self.current_frame.to_writer(&mut self.inner, self.coeffs)?;
                 let new_frame = Frame::from_prev(&self.current_frame);
@@ -253,9 +272,9 @@ impl<W> StandardEncoder<W>
                 enabled_short: 1,
                 enabled_int: 1,
                 begin_sample: li.start_sample,
-                begin_byte: (li.start_sample / 8) * 9 + ADX_HEADER_LEN as u32,
+                begin_byte: (Self::sample_to_byte(li.start_sample, self.spec.channels) + self.header_size) as u32,
                 end_sample: li.end_sample,
-                end_byte: ((li.end_sample - 1) / 8 + 1) * 9 + ADX_HEADER_LEN as u32,
+                end_byte: (Self::sample_to_byte(li.end_sample, self.spec.channels) + self.header_size) as u32,
             }
         });
 
@@ -270,9 +289,18 @@ impl<W> StandardEncoder<W>
             version: AdxVersion::Version3(loop_info),
             flags: 0,
         };
-        header.to_writer(self.inner)?;
+        header.to_writer(self.inner, self.header_size)?;
         Ok(())
     }
+	
+	fn sample_to_byte(start_sample: u32, channels: u32) -> usize {
+		// (li.start_sample / 8) * 9 + ADX_HEADER_LEN as u32
+		let mut frames = start_sample / 32;
+		if start_sample % 32 != 0 {
+			frames += 1;
+		}
+		(frames * 18 * channels) as usize
+	}
 }
 
 #[cfg(test)]
