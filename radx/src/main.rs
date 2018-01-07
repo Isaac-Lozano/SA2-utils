@@ -4,6 +4,7 @@ extern crate radx;
 use std::env;
 use std::fs::File;
 use std::str::FromStr;
+use std::io::{BufReader, BufWriter};
 
 use byteorder::{BigEndian, WriteBytesExt};
 
@@ -11,13 +12,13 @@ fn main() {
     let mut args = env::args().skip(1);
     let filename = args.next().unwrap();
 
-    let f = File::open(filename).unwrap();
+    let f = BufReader::new(File::open(filename).unwrap());
     let mut adx = radx::from_reader(f, true).unwrap();
 
     println!("channels: {}", adx.channels());
     println!("Sample rate: {}", adx.sample_rate());
 
-    let mut file = File::create("output.i16be").unwrap();
+    let mut file = BufWriter::new(File::create("output.i16be").unwrap());
 
     if let Some(num_samples_str) = args.next() {
         let num_samples = usize::from_str(&num_samples_str).unwrap();

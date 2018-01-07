@@ -68,6 +68,10 @@ impl Block {
         self.prev.second = self.prev.first;
         self.prev.first = sample;
     }
+	
+	fn is_empty(&self) -> bool {
+		self.size == 0
+	}
 
     fn is_full(&self) -> bool {
         self.size == 32
@@ -171,6 +175,10 @@ impl Frame {
             block.push(sample[channel], coeffs);
         }
     }
+	
+	fn is_empty(&self) -> bool {
+		self.blocks[0].is_empty()
+	}
 
     fn is_full(&self) -> bool {
         self.blocks[0].is_full()
@@ -219,12 +227,10 @@ impl<W> StandardEncoder<W>
 					fs_blocks += 1;
 				}
 				fs_blocks += 1;
-				println!("{} {}", fs_blocks, bytes_till_loop_start);
 				fs_blocks * 0x800 - bytes_till_loop_start
 			})
 			.unwrap_or(ADX_HEADER_LEN);
 
-		println!("{}", header_size);
         writer.seek(SeekFrom::Start(header_size as u64))?;
 			
         let mut encoder = StandardEncoder {
@@ -259,6 +265,9 @@ impl<W> StandardEncoder<W>
     }
 
     pub fn finish(mut self) -> io::Result<()> {
+		if !self.current_frame.is_empty() {
+			self.current_frame.to_writer(&mut self.inner, self.coeffs)?;
+		}
         self.inner.write_u16(0x8001)?;
         self.inner.write_u16(0x000e)?;
         for _ in 0..14 {
