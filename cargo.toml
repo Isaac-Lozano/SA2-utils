@@ -1,0 +1,12 @@
+[workspace]
+
+members = [
+    "afs_util",
+    "edit_hints",
+    "gvr_util",
+    "prs_util",
+    "sa2_set",
+    "sa2_text",
+    "set_editor",
+    "strable",
+]
