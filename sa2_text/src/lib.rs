@@ -39,7 +39,7 @@ impl TextElement {
 }
 
 #[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
-pub struct Sa2Text(Vec<TextElement>);
+pub struct Sa2Text(pub Vec<TextElement>);
 
 impl Sa2Text {
     pub fn to_bytes(&self, language: Language) -> Vec<u8> {
